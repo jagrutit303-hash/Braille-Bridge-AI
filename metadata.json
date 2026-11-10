@@ -1,0 +1,6 @@
+{
+  "name": "BrailleBridge AI",
+  "description": "An open-source, voice-first accessibility suite for blind and visually impaired users featuring Braille translation, Web Speech voice assistant, and document reading.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

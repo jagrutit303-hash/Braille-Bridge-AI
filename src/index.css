@@ -1,0 +1,400 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Atkinson Hyperlegible', 'DM Serif Display', Georgia, Cambria, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --canvas: #F7F5EF;
+  --surface: #fffefa;
+  --surface-raised: #eeece5;
+  --line: #d8d7d0;
+  --text: #1b211d;
+  --muted: #3d4841;
+  --quiet: #4e5b52;
+  --teal: #2847cf;
+  --teal-strong: #1c36ab;
+  --amber: #795b19;
+  --danger: #9b302d;
+}
+
+html.high-contrast,
+.high-contrast {
+  --canvas: #000000;
+  --surface: #12171e;
+  --surface-raised: #1a212b;
+  --line: #7a8fa6;
+  --text: #ffffff;
+  --muted: #e5ecf4;
+  --quiet: #cbd5e1;
+  --teal: #ffd600;
+  --teal-strong: #ffe44d;
+  --amber: #ffd600;
+  --danger: #ff7b7e;
+  color-scheme: dark;
+}
+
+html,
+body {
+  font-family: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  background-color: var(--canvas);
+  color: var(--text);
+  min-height: 100vh;
+  letter-spacing: 0.01em;
+}
+
+h1, h2, h3, h4, .font-serif {
+  font-family: 'Atkinson Hyperlegible', sans-serif !important;
+  letter-spacing: -0.01em;
+}
+
+/* Accessible focus ring */
+*:focus-visible {
+  outline: 3px solid #3155E7 !important;
+  outline-offset: 3px !important;
+}
+
+html.high-contrast *:focus-visible {
+  outline: 3px solid #ffd600 !important;
+  outline-offset: 3px !important;
+}
+
+/* ============================================================================
+   High-Contrast Mode Universal Overrides (WCAG 2.1 Level AAA Compliant)
+   Ensures every card, input, button, heading, and badge has >= 7:1 contrast
+   ============================================================================ */
+html.high-contrast body,
+html.high-contrast #root,
+html.high-contrast .min-h-screen {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+html.high-contrast header,
+html.high-contrast footer,
+html.high-contrast .bg-\[\#fffefa\],
+html.high-contrast .bg-\[\#fffefa\]\/95,
+html.high-contrast .bg-\[\#fffefa\]\/60,
+html.high-contrast .bg-white {
+  background-color: #12171e !important;
+  color: #ffffff !important;
+  border-color: #7a8fa6 !important;
+}
+
+html.high-contrast .bg-\[\#F7F5EF\],
+html.high-contrast .bg-\[\#eeece5\],
+html.high-contrast .bg-\[\#eeece5\]\/60 {
+  background-color: #1a212b !important;
+  color: #ffffff !important;
+  border-color: #64748b !important;
+}
+
+html.high-contrast .bg-\[\#e4e8fb\],
+html.high-contrast .bg-\[\#eaf5ec\] {
+  background-color: #0f2537 !important;
+  color: #e0f2fe !important;
+  border-color: #60a5fa !important;
+}
+
+html.high-contrast .bg-\[\#f4ecd6\],
+html.high-contrast .bg-\[\#fdf4e4\] {
+  background-color: #2b2100 !important;
+  color: #ffe57f !important;
+  border-color: #ffd600 !important;
+}
+
+html.high-contrast .bg-\[\#f6e2df\],
+html.high-contrast .bg-\[\#fbeaea\] {
+  background-color: #360d10 !important;
+  color: #ffc2c4 !important;
+  border-color: #ff7b7e !important;
+}
+
+html.high-contrast .text-\[\#202522\],
+html.high-contrast .text-\[\#1b211d\] {
+  color: #ffffff !important;
+}
+
+html.high-contrast .text-\[\#4b5750\],
+html.high-contrast .text-\[\#59685d\],
+html.high-contrast .text-\[\#525a54\] {
+  color: #e2e8f0 !important;
+}
+
+html.high-contrast .text-\[\#3155E7\],
+html.high-contrast .text-\[\#243fa7\] {
+  color: #ffd600 !important;
+}
+
+html.high-contrast .text-\[\#795b19\],
+html.high-contrast .text-\[\#59420e\] {
+  color: #fde047 !important;
+}
+
+html.high-contrast .text-\[\#9b302d\],
+html.high-contrast .text-\[\#762522\] {
+  color: #ff8a8c !important;
+}
+
+html.high-contrast .text-emerald-600 {
+  color: #4ade80 !important;
+}
+
+html.high-contrast .border-\[\#d8d7d0\],
+html.high-contrast .border-\[\#a6aaa2\],
+html.high-contrast .border-\[\#eeece5\] {
+  border-color: #64748b !important;
+}
+
+html.high-contrast .border-\[\#3155E7\],
+html.high-contrast .border-t-\[\#3155E7\] {
+  border-color: #ffd600 !important;
+}
+
+html.high-contrast .bg-\[\#3155E7\] {
+  background-color: #ffd600 !important;
+  color: #000000 !important;
+  border-color: #ffd600 !important;
+}
+
+html.high-contrast .bg-\[\#3155E7\]:hover {
+  background-color: #ffe44d !important;
+  color: #000000 !important;
+}
+
+html.high-contrast .bg-\[\#3155E7\] * {
+  color: #000000 !important;
+}
+
+html.high-contrast .bg-\[\#202522\] {
+  background-color: #ffd600 !important;
+  color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+html.high-contrast input,
+html.high-contrast textarea,
+html.high-contrast select {
+  background-color: #0a0f14 !important;
+  color: #ffffff !important;
+  border: 2px solid #94a3b8 !important;
+}
+
+html.high-contrast input::placeholder,
+html.high-contrast textarea::placeholder {
+  color: #cbd5e1 !important;
+  opacity: 0.9 !important;
+}
+
+html.high-contrast option {
+  background-color: #12171e !important;
+  color: #ffffff !important;
+}
+
+html.high-contrast kbd {
+  background-color: #1e293b !important;
+  color: #ffd600 !important;
+  border-color: #94a3b8 !important;
+}
+
+/* ============================================================================
+   Colorblind-Responsive Accessibility Palettes (data-cvd on <html>)
+   Eliminates ambiguous red/green & blue/yellow reliance using Okabe-Ito palettes
+   plus explicit non-color border/pattern differentiation.
+   ============================================================================ */
+
+/* 1. Red-Green Safe (Deuteranopia / Protanopia): Royal Blue & Vermilion Orange */
+html[data-cvd="deuteranopia"]:not(.high-contrast) {
+  --teal: #005AB5;
+  --teal-strong: #003E80;
+  --amber: #E69F00;
+  --danger: #D55E00;
+}
+
+html[data-cvd="deuteranopia"]:not(.high-contrast) .text-emerald-700,
+html[data-cvd="deuteranopia"]:not(.high-contrast) .text-emerald-800,
+html[data-cvd="deuteranopia"]:not(.high-contrast) .text-\[\#0f8872\],
+html[data-cvd="deuteranopia"]:not(.high-contrast) .text-\[\#1c7c54\] {
+  color: #004488 !important;
+}
+
+html[data-cvd="deuteranopia"]:not(.high-contrast) .bg-emerald-50,
+html[data-cvd="deuteranopia"]:not(.high-contrast) .bg-\[\#e9f5ef\],
+html[data-cvd="deuteranopia"]:not(.high-contrast) .bg-\[\#eaf5ec\] {
+  background-color: #e6f0ff !important;
+  border-color: #005AB5 !important;
+}
+
+html[data-cvd="deuteranopia"]:not(.high-contrast) .border-emerald-200,
+html[data-cvd="deuteranopia"]:not(.high-contrast) .border-emerald-300,
+html[data-cvd="deuteranopia"]:not(.high-contrast) .border-\[\#c2e4d3\],
+html[data-cvd="deuteranopia"]:not(.high-contrast) .border-\[\#b8dbc9\] {
+  border-color: #005AB5 !important;
+}
+
+html[data-cvd="deuteranopia"]:not(.high-contrast) .text-red-700,
+html[data-cvd="deuteranopia"]:not(.high-contrast) .text-red-800,
+html[data-cvd="deuteranopia"]:not(.high-contrast) .text-\[\#9b302d\] {
+  color: #9e3800 !important;
+}
+
+html[data-cvd="deuteranopia"]:not(.high-contrast) .bg-red-50,
+html[data-cvd="deuteranopia"]:not(.high-contrast) .bg-rose-50 {
+  background-color: #fff0e5 !important;
+  border-style: dashed !important;
+  border-color: #D55E00 !important;
+}
+
+html[data-cvd="deuteranopia"]:not(.high-contrast) .border-red-200,
+html[data-cvd="deuteranopia"]:not(.high-contrast) .border-red-300 {
+  border-color: #D55E00 !important;
+  border-style: dashed !important;
+}
+
+html[data-cvd="deuteranopia"].high-contrast .text-red-700,
+html[data-cvd="deuteranopia"].high-contrast .bg-red-50,
+html[data-cvd="deuteranopia"].high-contrast .border-red-300 {
+  border-color: #ff9f43 !important;
+  border-style: dashed !important;
+}
+
+/* 2. Blue-Yellow Safe (Tritanopia): Teal Green & Vivid Magenta */
+html[data-cvd="tritanopia"]:not(.high-contrast) {
+  --teal: #0072B2;
+  --teal-strong: #005080;
+  --amber: #CC3377;
+  --danger: #B31B5B;
+}
+
+html[data-cvd="tritanopia"]:not(.high-contrast) .bg-\[\#3155E7\] {
+  background-color: #007769 !important;
+}
+
+html[data-cvd="tritanopia"]:not(.high-contrast) .text-\[\#3155E7\] {
+  color: #006659 !important;
+}
+
+html[data-cvd="tritanopia"]:not(.high-contrast) .bg-amber-50,
+html[data-cvd="tritanopia"]:not(.high-contrast) .bg-yellow-50,
+html[data-cvd="tritanopia"]:not(.high-contrast) .bg-red-50 {
+  background-color: #fdf0f6 !important;
+  border-color: #CC3377 !important;
+  border-style: dashed !important;
+}
+
+html[data-cvd="tritanopia"]:not(.high-contrast) .text-amber-700,
+html[data-cvd="tritanopia"]:not(.high-contrast) .text-amber-800,
+html[data-cvd="tritanopia"]:not(.high-contrast) .text-red-700 {
+  color: #8f144c !important;
+}
+
+html[data-cvd="tritanopia"]:not(.high-contrast) .bg-emerald-50,
+html[data-cvd="tritanopia"]:not(.high-contrast) .bg-\[\#e9f5ef\],
+html[data-cvd="tritanopia"]:not(.high-contrast) .bg-\[\#e4e8fb\] {
+  background-color: #e6f7f4 !important;
+  border-color: #007769 !important;
+}
+
+html[data-cvd="tritanopia"]:not(.high-contrast) .text-emerald-700,
+html[data-cvd="tritanopia"]:not(.high-contrast) .text-\[\#0f8872\] {
+  color: #006154 !important;
+}
+
+/* 3. Monochrome Safe (Achromatopsia): Zero-color ambiguity + Weight/Pattern cues */
+html[data-cvd="monochrome"] {
+  --teal: #111827;
+  --teal-strong: #000000;
+  --amber: #374151;
+  --danger: #1f2937;
+}
+
+html[data-cvd="monochrome"]:not(.high-contrast) {
+  filter: grayscale(100%) contrast(1.06);
+}
+
+html[data-cvd="monochrome"]:not(.high-contrast) .bg-red-50,
+html[data-cvd="monochrome"]:not(.high-contrast) .border-red-300,
+html[data-cvd="monochrome"].high-contrast .border-red-300 {
+  border-style: dashed !important;
+  border-width: 2px !important;
+}
+
+html[data-cvd="monochrome"] .bg-emerald-50,
+html[data-cvd="monochrome"] .bg-\[\#e9f5ef\] {
+  border-width: 2px !important;
+}
+
+/* 6-dot Braille Signal Instrument */
+.signal-mark {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 9px);
+  gap: 5px;
+  padding: 4px;
+}
+
+.signal-mark i {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--teal);
+  border-radius: 50%;
+  background: transparent;
+  transition: all 180ms ease;
+}
+
+.signal-success i {
+  background: var(--teal);
+}
+
+.signal-listening i {
+  animation: signal-pulse 1.2s ease-in-out infinite;
+}
+.signal-listening i:nth-child(2) { animation-delay: .12s; }
+.signal-listening i:nth-child(3) { animation-delay: .24s; }
+.signal-listening i:nth-child(4) { animation-delay: .36s; }
+.signal-listening i:nth-child(5) { animation-delay: .48s; }
+.signal-listening i:nth-child(6) { animation-delay: .6s; }
+
+.signal-processing i {
+  animation: signal-wave 1s ease-in-out infinite;
+}
+.signal-processing i:nth-child(2), .signal-processing i:nth-child(5) { animation-delay: .1s; }
+.signal-processing i:nth-child(3), .signal-processing i:nth-child(6) { animation-delay: .2s; }
+
+.signal-error i {
+  border-color: var(--danger);
+}
+
+.signal-warning i {
+  border-color: var(--amber);
+  background: var(--amber);
+}
+
+@keyframes signal-pulse {
+  0%, 100% { transform: scale(0.82); background: transparent; }
+  50% { transform: scale(1.15); background: var(--teal); }
+}
+
+@keyframes signal-wave {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); background: var(--teal); }
+}
+
+@keyframes result-arrive {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-result {
+  animation: result-arrive 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

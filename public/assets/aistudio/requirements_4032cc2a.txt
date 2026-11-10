@@ -1,0 +1,28 @@
+# BrailleBridge AI — Python requirements
+# Install with: pip install -r requirements.txt
+
+# Core web framework
+streamlit>=1.30.0
+
+# PDF text extraction
+pypdf>=3.17.0
+
+# Testing
+pytest>=7.4.0
+
+# ─── Optional (install manually for extra features) ────────────────────────
+#
+# Liblouis standards-based Braille translation uses the native shared library
+# and en-ueb-g1.ctb, en-ueb-g2.ctb, and unicode.dis tables. See README.md for
+# setup and LIBLOUIS_LIBRARY / LOUIS_TABLEPATH configuration. Do not install
+# the unrelated PyPI package named "louis".
+#
+# OCR support for scanned PDFs (requires Tesseract binary on system PATH)
+# Windows: https://github.com/UB-Mannheim/tesseract/wiki
+# Linux:   sudo apt-get install tesseract-ocr
+# macOS:   brew install tesseract
+# Then:    pip install pytesseract pdf2image Pillow
+#
+# pytesseract
+# pdf2image
+# Pillow
