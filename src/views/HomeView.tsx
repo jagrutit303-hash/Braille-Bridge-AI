@@ -22,7 +22,9 @@ import {
   isSpeaking,
   stopSpeaking,
   getActiveLanguage,
+  prepareAudioForSpeech,
 } from "../services/speechService";
+import { getPhrases } from "../services/i18nService";
 import { SignalMark, SignalState } from "../components/SignalMark";
 import { BrailleCellInspector } from "../components/BrailleCellInspector";
 import { VoiceDictationButton } from "../components/VoiceDictationButton";
@@ -88,28 +90,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
     }
   };
 
-  const handleWelcomeTour = async () => {
+  const handleWelcomeTour = () => {
+    prepareAudioForSpeech();
     const activeLang = getActiveLanguage();
-    const short = activeLang.split("-")[0].toLowerCase();
-    let tour =
-      "Welcome to BrailleBridge AI. Your voice-first accessible study companion. Open the Dashboard to review your saved notes, notices, and Braille streaks; translate text into English or Bharati Braille; upload PDFs or scanned images for smart audio reading; or press Alt plus V anytime to ask the Voice Agent for guidance.";
-
-    if (short !== "en") {
-      try {
-        const res = await fetch("/api/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: tour, sourceLang: "en", targetLang: short }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.translatedText) tour = data.translatedText;
-        }
-      } catch {
-        // fallback to English
-      }
-    }
-    speakText(tour, { lang: activeLang });
+    const phrases = getPhrases(activeLang);
+    speakText(phrases.welcomeTour, { lang: activeLang });
   };
 
   useEffect(() => {

@@ -506,13 +506,13 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
       {/* Expanded Voice Agent Panel */}
       {isOpen && (
         <div
-          className="fixed bottom-[4.5rem] right-3 left-3 sm:bottom-20 sm:right-4 sm:left-auto sm:w-[500px] max-h-[78vh] z-50 bg-[#fffefa] border-2 border-[#3155E7] rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all text-[#202522]"
+          className="fixed bottom-[4.5rem] right-3 left-3 sm:bottom-20 sm:right-4 sm:left-auto sm:w-[500px] max-h-[calc(100dvh-5.5rem)] sm:max-h-[calc(100dvh-6.5rem)] z-50 bg-[#fffefa] border-2 border-[#3155E7] rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all text-[#202522]"
           role="dialog"
           aria-labelledby="agent-panel-title"
           aria-modal="false"
         >
           {/* Header */}
-          <div className="bg-[#202522] text-white px-3.5 sm:px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="shrink-0 bg-[#202522] text-white px-3.5 sm:px-4 py-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#3155E7] animate-ping" />
               <h2 id="agent-panel-title" className="text-sm font-bold">
@@ -547,7 +547,7 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
           </div>
 
           {/* Status signal instrument & active document context */}
-          <div className="p-3 bg-[#F7F5EF] border-b border-[#d8d7d0] space-y-1.5">
+          <div className="shrink-0 p-3 bg-[#F7F5EF] border-b border-[#d8d7d0] space-y-1.5">
             <SignalMark state={signalState} message={statusMessage} />
             {activeDocName && (
               <div className="text-[11px] font-bold text-[#3155E7] flex items-center gap-1.5">
@@ -567,7 +567,7 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
               setTypedQuery("");
               handleProcessVoiceCommand(q);
             }}
-            className="px-4 pt-3 pb-1 flex items-center gap-2 border-b border-[#eeece5]"
+            className="shrink-0 px-3.5 sm:px-4 pt-3 pb-2 flex items-center gap-2 border-b border-[#eeece5]"
           >
             <input
               type="text"
@@ -575,19 +575,19 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
               onChange={(e) => setTypedQuery(e.target.value)}
               placeholder="Ask anything (website, notes, or command)…"
               aria-label="Ask BrailleBridge Agent a question or type a command"
-              className="flex-1 px-3 py-1.5 bg-[#F7F5EF] border border-[#a6aaa2] rounded text-xs text-[#202522] outline-none focus:border-[#3155E7]"
+              className="flex-1 min-w-0 px-3 py-1.5 bg-[#F7F5EF] border border-[#a6aaa2] rounded text-xs text-[#202522] outline-none focus:border-[#3155E7]"
             />
             <button
               type="submit"
               disabled={!typedQuery.trim()}
-              className="px-3 py-1.5 bg-[#3155E7] text-white text-xs font-bold rounded hover:bg-[#233fbe] disabled:opacity-40"
+              className="shrink-0 px-3 py-1.5 bg-[#3155E7] text-white text-xs font-bold rounded hover:bg-[#233fbe] disabled:opacity-40"
             >
               Ask
             </button>
           </form>
 
           {/* Transcript / Answer / Plan Drawer */}
-          <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
+          <div className="flex-1 min-h-0 p-3.5 sm:p-4 space-y-3 overflow-y-auto">
             {isListening && interimText && (
               <div className="p-2.5 bg-[#e4e8fb] border border-[#aab8f3] rounded text-xs text-[#243fa7] italic">
                 Hearing: {interimText}…
@@ -718,8 +718,8 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
           </div>
 
           {/* Quick Controls Footer */}
-          <div className="p-3 bg-[#F7F5EF] border-t border-[#d8d7d0] flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
+          <div className="shrink-0 p-3 bg-[#F7F5EF] border-t border-[#d8d7d0] flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
                 onClick={handleToggleListening}
                 className={`px-3 py-1.5 rounded font-bold text-xs flex items-center gap-1.5 ${
@@ -778,7 +778,7 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
                   speakText(msg, { lang: val, rate: speechSpeed });
                   setStatusMessage(msg);
                 }}
-                className="p-1 bg-white border border-[#a6aaa2] rounded text-[11px] text-[#202522]"
+                className="p-1 bg-white border border-[#a6aaa2] rounded text-[11px] text-[#202522] max-w-[160px] sm:max-w-none"
                 aria-label="Agent Voice Recognition Language"
               >
                 {SUPPORTED_LANGUAGES.map((l) => (
@@ -795,13 +795,16 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
       {/* Task Audit Log Modal Drawer */}
       {showAuditLog && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs"
+          className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-3 sm:p-4 backdrop-blur-xs"
           role="dialog"
           aria-modal="true"
           aria-labelledby="audit-log-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAuditLog(false);
+          }}
         >
-          <div className="bg-[#fffefa] border-2 border-[#3155E7] p-6 rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col space-y-4 text-[#202522]">
-            <div className="flex items-center justify-between pb-3 border-b border-[#d8d7d0]">
+          <div className="bg-[#fffefa] border-2 border-[#3155E7] p-4 sm:p-6 rounded-xl shadow-2xl max-w-2xl w-full max-h-[calc(100dvh-1.5rem)] sm:max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden space-y-3 sm:space-y-4 text-[#202522]">
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[#d8d7d0]">
               <div>
                 <h2 id="audit-log-title" className="text-lg font-bold text-[#202522]">
                   Agent Task Audit Trail
@@ -818,7 +821,7 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1">
               {auditEntries.length === 0 ? (
                 <p className="text-xs text-[#59685d] italic py-8 text-center">
                   No actions logged yet in this session. Speak a command to begin.
@@ -857,7 +860,7 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
               )}
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-[#d8d7d0] text-xs">
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-[#d8d7d0] text-xs">
               <span className="text-[#59685d] text-[11px]">
                 Audit log is kept locally in browser memory and cleared on session restart.
               </span>

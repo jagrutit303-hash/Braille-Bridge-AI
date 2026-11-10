@@ -10,7 +10,7 @@ import {
   NoticeAnalysis,
   NoticeDeadline,
 } from "../services/noticeService";
-import { speakText, stopSpeaking, getActiveLanguage } from "../services/speechService";
+import { speakText, stopSpeaking, getActiveLanguage, prepareAudioForSpeech } from "../services/speechService";
 import { setActiveNoticeContext, consumePendingNoticeLoad } from "../services/appContextService";
 import {
   fetchCollegeNoticesFromCloud,
@@ -214,6 +214,7 @@ export const NoticeAssistantView: React.FC = () => {
 
   const handleListenFullBriefing = async () => {
     if (!analysis) return;
+    prepareAudioForSpeech();
 
     const criticalCount = analysis.deadlines.filter((d) => d.isCritical).length;
     const deadlineList = analysis.deadlines

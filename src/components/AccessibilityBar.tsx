@@ -6,6 +6,7 @@ import {
   getActiveLanguage,
   getPunctuationMode,
   setPunctuationMode,
+  prepareAudioForSpeech,
   PunctuationMode,
 } from "../services/speechService";
 import { ColorVisionMode } from "../services/supabaseService";
@@ -63,6 +64,7 @@ export const AccessibilityBar: React.FC<AccessibilityBarProps> = ({
   }, []);
 
   const handleSpeakPageGuide = async () => {
+    prepareAudioForSpeech();
     const englishGuide = PAGE_GUIDES[currentPage] || PAGE_GUIDES.home;
     const activeLang = getActiveLanguage();
     const short = activeLang.split("-")[0].toLowerCase();

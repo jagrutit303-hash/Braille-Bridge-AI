@@ -62,6 +62,7 @@ import {
   speakText,
   getActiveLanguage,
   getPunctuationMode,
+  prepareAudioForSpeech,
 } from "../services/speechService";
 import { SignalMark, SignalState } from "../components/SignalMark";
 
@@ -263,6 +264,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const speakDashboardSummary = async () => {
+    prepareAudioForSpeech();
     const accuracy =
       gameState.attempts > 0
         ? Math.round((gameState.correct / gameState.attempts) * 100)

@@ -372,10 +372,115 @@ export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice
 
 let activeUtterance: SpeechSynthesisUtterance | null = null;
 let activeAudioElement: HTMLAudioElement | null = null;
+let sharedAudioElement: HTMLAudioElement | null = null;
+let activeAudioUrl: string | null = null;
+let activeBufferSource: AudioBufferSourceNode | null = null;
 let activePauseTimer: ReturnType<typeof setTimeout> | null = null;
 let ttsSessionId: number = 0;
 let lastSpokenText: string = "";
 let lastSpokenOptions: TTSOptions = {};
+
+const INDIC_SPEECH_PHONETIC_MAP: Record<string, Array<[RegExp, string]>> = {
+  hi: [
+    [/\bBrailleBridge\s*AI\b/gi, "ब्रेल ब्रिज ए आई"],
+    [/\bBrailleBridge\b/gi, "ब्रेल ब्रिज"],
+    [/\bBraille\s+Bridge\b/gi, "ब्रेल ब्रिज"],
+    [/\bBraille\b/gi, "ब्रेल"],
+    [/\bAlt\s*(?:\+|plus)\s*V\b/gi, "ऑल्ट वी"],
+    [/\bAlt\b/gi, "ऑल्ट"],
+    [/\bEscape\b|\bEsc\b/gi, "एस्केप"],
+    [/\bSpacebar\b|\bSpace\b/gi, "स्पेस"],
+    [/\bUEB\b/g, "यू ई बी"],
+    [/\bPDFs?\b/g, "पी डी एफ"],
+    [/\bOCR\b/g, "ओ सी आर"],
+    [/\bAI\b/g, "ए आई"],
+    [/\bDashboard\b/gi, "डैशबोर्ड"],
+  ],
+  kn: [
+    [/\bBrailleBridge\s*AI\b/gi, "ಬ್ರೈಲ್ ಬ್ರಿಡ್ಜ್ ಎ ಐ"],
+    [/\bBrailleBridge\b/gi, "ಬ್ರೈಲ್ ಬ್ರಿಡ್ಜ್"],
+    [/\bBraille\s+Bridge\b/gi, "ಬ್ರೈಲ್ ಬ್ರಿಡ್ಜ್"],
+    [/\bBraille\b/gi, "ಬ್ರೈಲ್"],
+    [/\bAlt\s*(?:\+|plus)\s*V\b/gi, "ಆಲ್ಟ್ ವಿ"],
+    [/\bAlt\b/gi, "ಆಲ್ಟ್"],
+    [/\bEscape\b|\bEsc\b/gi, "ಎಸ್ಕೇಪ್"],
+    [/\bUEB\b/g, "ಯು ಇ ಬಿ"],
+    [/\bPDFs?\b/g, "ಪಿ ಡಿ ಎಫ್"],
+    [/\bOCR\b/g, "ಒ ಸಿ ಆರ್"],
+    [/\bAI\b/g, "ಎ ಐ"],
+    [/\bDashboard\b/gi, "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್"],
+  ],
+  ta: [
+    [/\bBrailleBridge\s*AI\b/gi, "பிரெய்ல் பிரிட்ஜ் ஏ ஐ"],
+    [/\bBrailleBridge\b/gi, "பிரெய்ல் பிரிட்ஜ்"],
+    [/\bBraille\s+Bridge\b/gi, "பிரெய்ல் பிரிட்ஜ்"],
+    [/\bBraille\b/gi, "பிரெய்ல்"],
+    [/\bAlt\s*(?:\+|plus)\s*V\b/gi, "ஆல்ட் வி"],
+    [/\bAlt\b/gi, "ஆல்ட்"],
+    [/\bEscape\b|\bEsc\b/gi, "எஸ்கேப்"],
+    [/\bUEB\b/g, "யு இ பி"],
+    [/\bPDFs?\b/g, "பி டி எஃப்"],
+    [/\bOCR\b/g, "ஓ சி ஆர்"],
+    [/\bAI\b/g, "ஏ ஐ"],
+    [/\bDashboard\b/gi, "டாஷ்போர்டு"],
+  ],
+  bn: [
+    [/\bBrailleBridge\s*AI\b/gi, "ব্রেইল ব্রিজ এ আই"],
+    [/\bBrailleBridge\b/gi, "ব্রেইল ব্রিজ"],
+    [/\bBraille\s+Bridge\b/gi, "ব্রেইল ব্রিজ"],
+    [/\bBraille\b/gi, "ব্রেইল"],
+    [/\bAlt\s*(?:\+|plus)\s*V\b/gi, "অল্ট ভি"],
+    [/\bAlt\b/gi, "অল্ট"],
+    [/\bEscape\b|\bEsc\b/gi, "এস্কেপ"],
+    [/\bUEB\b/g, "ইউ ই বি"],
+    [/\bPDFs?\b/g, "পি ডি এফ"],
+    [/\bOCR\b/g, "ও সি আর"],
+    [/\bAI\b/g, "এ আই"],
+    [/\bDashboard\b/gi, "ড্যাশবোর্ড"],
+  ],
+};
+
+/**
+ * Converts stray English UI/brand terms into native phonetic script for Indic voices
+ * so Indic TTS never spells out or skips untranslated Latin tokens.
+ */
+export function normalizeTextForSpeechLang(text: string, primaryLang: string): string {
+  const rules = INDIC_SPEECH_PHONETIC_MAP[primaryLang];
+  if (!rules || !text) return text;
+  let out = text;
+  for (const [pattern, replacement] of rules) {
+    out = out.replace(pattern, replacement);
+  }
+  return out;
+}
+
+/**
+ * Call synchronously inside user click/key handlers before async work so Web Audio
+ * and HTMLAudio remain unlocked across async fetch delays.
+ */
+export function prepareAudioForSpeech(): void {
+  if (typeof window === "undefined") return;
+  try {
+    getAudioContext();
+    if (!sharedAudioElement && typeof Audio !== "undefined") {
+      sharedAudioElement = new Audio();
+      sharedAudioElement.preload = "auto";
+    }
+  } catch {
+    // ignore browser audio init restriction
+  }
+}
+
+function revokeActiveAudioUrl(): void {
+  if (activeAudioUrl) {
+    try {
+      URL.revokeObjectURL(activeAudioUrl);
+    } catch {
+      // ignore
+    }
+    activeAudioUrl = null;
+  }
+}
 
 export function getLastSpokenText(): string {
   return lastSpokenText;
@@ -398,7 +503,10 @@ function fallbackToBrowserTTS(
     return;
   }
 
-  window.speechSynthesis.cancel();
+  const neededCancel = window.speechSynthesis.speaking || window.speechSynthesis.pending;
+  if (neededCancel) {
+    window.speechSynthesis.cancel();
+  }
   const segments = splitSpeechSegmentsWithPauses(cleanText, 240);
   let idx = 0;
 
@@ -457,7 +565,11 @@ function fallbackToBrowserTTS(
     window.speechSynthesis.speak(utterance);
   };
 
-  speakNextSegment();
+  if (neededCancel) {
+    activePauseTimer = setTimeout(speakNextSegment, 35);
+  } else {
+    speakNextSegment();
+  }
 }
 
 export function speakText(text: string, options: TTSOptions = {}): void {
@@ -465,6 +577,7 @@ export function speakText(text: string, options: TTSOptions = {}): void {
   if (!rawTrimmed) return;
 
   stopSpeaking();
+  prepareAudioForSpeech();
   const currentSession = ++ttsSessionId;
 
   const detectedLang = detectScriptLanguage(rawTrimmed);
@@ -479,72 +592,129 @@ export function speakText(text: string, options: TTSOptions = {}): void {
     detectedLang ? detectedLang.split("-")[0] : langToUse.split("-")[0]
   ).toLowerCase();
 
-  const processedText = options.raw
+  const rawOrFormatted = options.raw
     ? rawTrimmed
     : formatTextForSpeech(rawTrimmed, options.punctuationMode || getPunctuationMode());
+
+  const processedText = normalizeTextForSpeechLang(rawOrFormatted, primaryLang);
 
   lastSpokenText = rawTrimmed;
   lastSpokenOptions = { ...options, lang: langToUse };
 
   // For Indic languages (Kannada, Hindi, Tamil, Bengali):
-  // Always stream crystal-clear neural speech from /api/tts first, pausing cleanly at punctuation boundaries.
+  // Fetch native MP3 audio via /api/tts and play via shared HTMLAudio / Web Audio API
+  // so multi-segment speech and async-translated text never fail autoplay or fall back to ASCII spelling.
   if (
     (primaryLang === "kn" || primaryLang === "hi" || primaryLang === "ta" || primaryLang === "bn") &&
     typeof window !== "undefined" &&
-    typeof Audio !== "undefined"
+    typeof fetch !== "undefined"
   ) {
-    const segments = splitSpeechSegmentsWithPauses(processedText, 160);
+    const segments = splitSpeechSegmentsWithPauses(processedText, 140);
     let idx = 0;
 
-    const playNextSegment = () => {
+    const advanceAfterSegment = (seg: SpeechSegment) => {
+      if (currentSession !== ttsSessionId) return;
+      idx++;
+      if (idx >= segments.length) {
+        activeAudioElement = null;
+        activeBufferSource = null;
+        revokeActiveAudioUrl();
+        options.onEnd?.();
+      } else {
+        activePauseTimer = setTimeout(playNextSegment, seg.pauseAfterMs);
+      }
+    };
+
+    const playNextSegment = async () => {
       if (currentSession !== ttsSessionId) return;
       if (idx >= segments.length) {
         activeAudioElement = null;
+        activeBufferSource = null;
+        revokeActiveAudioUrl();
         options.onEnd?.();
         return;
       }
 
       const seg = segments[idx];
       const url = `/api/tts?text=${encodeURIComponent(seg.text)}&lang=${encodeURIComponent(primaryLang)}`;
-      const audio = new Audio(url);
-      audio.playbackRate = options.rate ?? 1.0;
-      activeAudioElement = audio;
 
-      audio.onplay = () => {
-        if (idx === 0) options.onStart?.();
-      };
-      audio.onended = () => {
+      try {
+        const res = await fetch(url);
         if (currentSession !== ttsSessionId) return;
-        idx++;
-        if (idx >= segments.length) {
-          activeAudioElement = null;
-          options.onEnd?.();
-        } else {
-          activePauseTimer = setTimeout(playNextSegment, seg.pauseAfterMs);
-        }
-      };
-      audio.onerror = () => {
-        activeAudioElement = null;
-        if (currentSession === ttsSessionId) {
-          fallbackToBrowserTTS(
-            segments.slice(idx).map((s) => s.text).join(" "),
-            langToUse,
-            options,
-            currentSession
-          );
-        }
-      };
+        if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (currentSession !== ttsSessionId) return;
+        if (!blob || blob.size < 100) throw new Error("Empty TTS audio");
 
-      audio.play().catch(() => {
-        if (currentSession === ttsSessionId) {
-          fallbackToBrowserTTS(
-            segments.slice(idx).map((s) => s.text).join(" "),
-            langToUse,
-            options,
-            currentSession
-          );
+        // Prefer reusable sharedAudioElement so pause/resume/playbackRate stay simple
+        if (typeof Audio !== "undefined") {
+          const audio = sharedAudioElement || new Audio();
+          sharedAudioElement = audio;
+          revokeActiveAudioUrl();
+          activeAudioUrl = URL.createObjectURL(blob);
+          audio.src = activeAudioUrl;
+          audio.playbackRate = options.rate ?? 1.0;
+          activeAudioElement = audio;
+
+          audio.onended = () => {
+            if (currentSession !== ttsSessionId) return;
+            advanceAfterSegment(seg);
+          };
+          audio.onerror = () => {
+            activeAudioElement = null;
+            revokeActiveAudioUrl();
+            if (currentSession === ttsSessionId) {
+              fallbackToBrowserTTS(
+                segments.slice(idx).map((s) => s.text).join(" "),
+                langToUse,
+                options,
+                currentSession
+              );
+            }
+          };
+
+          try {
+            if (idx === 0) options.onStart?.();
+            await audio.play();
+            return;
+          } catch {
+            // Try Web Audio API decodeAudioData when <audio>.play() is blocked after async fetch
+            activeAudioElement = null;
+            revokeActiveAudioUrl();
+            const ctx = getAudioContext();
+            if (ctx) {
+              const arrayBuf = await blob.arrayBuffer();
+              if (currentSession !== ttsSessionId) return;
+              const decoded = await ctx.decodeAudioData(arrayBuf.slice(0));
+              if (currentSession !== ttsSessionId) return;
+              const source = ctx.createBufferSource();
+              source.buffer = decoded;
+              source.playbackRate.value = options.rate ?? 1.0;
+              source.connect(ctx.destination);
+              activeBufferSource = source;
+              source.onended = () => {
+                if (activeBufferSource === source) activeBufferSource = null;
+                if (currentSession !== ttsSessionId) return;
+                advanceAfterSegment(seg);
+              };
+              if (idx === 0) options.onStart?.();
+              source.start(0);
+              return;
+            }
+          }
         }
-      });
+      } catch {
+        // Fallback below
+      }
+
+      if (currentSession === ttsSessionId) {
+        fallbackToBrowserTTS(
+          segments.slice(idx).map((s) => s.text).join(" "),
+          langToUse,
+          options,
+          currentSession
+        );
+      }
     };
 
     playNextSegment();
@@ -585,6 +755,15 @@ export function stopSpeaking(): void {
     clearTimeout(activePauseTimer);
     activePauseTimer = null;
   }
+  if (activeBufferSource) {
+    try {
+      activeBufferSource.stop();
+      activeBufferSource.disconnect();
+    } catch {
+      // ignore
+    }
+    activeBufferSource = null;
+  }
   if (activeAudioElement) {
     try {
       activeAudioElement.pause();
@@ -594,6 +773,7 @@ export function stopSpeaking(): void {
       // ignore
     }
   }
+  revokeActiveAudioUrl();
   if (isTTSSupported()) {
     window.speechSynthesis.cancel();
     activeUtterance = null;
@@ -602,6 +782,7 @@ export function stopSpeaking(): void {
 
 export function isSpeaking(): boolean {
   return (
+    Boolean(activeBufferSource) ||
     Boolean(activeAudioElement && !activeAudioElement.paused) ||
     (isTTSSupported() && (window.speechSynthesis.speaking || Boolean(activeUtterance)))
   );

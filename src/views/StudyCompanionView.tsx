@@ -20,6 +20,7 @@ import {
   isSpeaking,
   isSpeechPaused,
   getActiveLanguage,
+  prepareAudioForSpeech,
 } from "../services/speechService";
 import { setActiveDocumentContext, consumePendingNoteLoad } from "../services/appContextService";
 import {
@@ -271,6 +272,7 @@ Modern screen readers rely on the accessibility tree (DOM exposure via WAI-ARIA)
   // Audio Playback Handlers
   const handlePlayAudio = async () => {
     if (!docResult?.text) return;
+    prepareAudioForSpeech();
     if (isSpeechPaused()) {
       resumeSpeaking();
       setIsPausedAudio(false);

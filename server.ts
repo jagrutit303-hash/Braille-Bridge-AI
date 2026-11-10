@@ -212,6 +212,72 @@ function saveDiskDatabase() {
 // ---------------------------------------------------------------------------
 const translationCache = new Map<string, string>();
 
+const INDIC_BRAND_PHONETIC: Record<string, Record<string, string>> = {
+  hi: {
+    "BrailleBridge AI": "ब्रेल ब्रिज ए आई",
+    BrailleBridge: "ब्रेल ब्रिज",
+    "Braille Bridge": "ब्रेल ब्रिज",
+    Braille: "ब्रेल",
+    "Alt+V": "ऑल्ट वी",
+    "Alt + V": "ऑल्ट वी",
+    "Alt plus V": "ऑल्ट प्लस वी",
+    AI: "ए आई",
+    PDF: "पी डी एफ",
+    OCR: "ओ सी आर",
+    UEB: "यू ई बी",
+  },
+  kn: {
+    "BrailleBridge AI": "ಬ್ರೈಲ್ ಬ್ರಿಡ್ಜ್ ಎ ಐ",
+    BrailleBridge: "ಬ್ರೈಲ್ ಬ್ರಿಡ್ಜ್",
+    "Braille Bridge": "ಬ್ರೈಲ್ ಬ್ರಿಡ್ಜ್",
+    Braille: "ಬ್ರೈಲ್",
+    "Alt+V": "ಆಲ್ಟ್ ವಿ",
+    "Alt + V": "ಆಲ್ಟ್ ವಿ",
+    "Alt plus V": "ಆಲ್ಟ್ ಪ್ಲಸ್ ವಿ",
+    AI: "ಎ ಐ",
+    PDF: "ಪಿ ಡಿ ಎಫ್",
+    OCR: "ಒ ಸಿ ಆರ್",
+    UEB: "ಯು ಇ ಬಿ",
+  },
+  ta: {
+    "BrailleBridge AI": "பிரெய்ல் பிரிட்ஜ் ஏ ஐ",
+    BrailleBridge: "பிரெய்ல் பிரிட்ஜ்",
+    "Braille Bridge": "பிரெய்ல் பிரிட்ஜ்",
+    Braille: "பிரெய்ல்",
+    "Alt+V": "ஆல்ட் வி",
+    "Alt + V": "ஆல்ட் வி",
+    "Alt plus V": "ஆல்ட் பிளஸ் வி",
+    AI: "ஏ ஐ",
+    PDF: "பி டி எஃப்",
+    OCR: "ஓ சி ஆர்",
+    UEB: "யு இ பி",
+  },
+  bn: {
+    "BrailleBridge AI": "ব্রেইল ব্রিজ এ আই",
+    BrailleBridge: "ব্রেইল ব্রিজ",
+    "Braille Bridge": "ব্রেইল ব্রিজ",
+    Braille: "ব্রেইল",
+    "Alt+V": "অল্ট ভি",
+    "Alt + V": "অল্ট ভি",
+    "Alt plus V": "অল্ট প্লাস ভি",
+    AI: "এ আই",
+    PDF: "পি ডি এফ",
+    OCR: "ও সি আর",
+    UEB: "ইউ ই বি",
+  },
+};
+
+function localizeAsciiTerms(text: string, shortLang: string): string {
+  const dict = INDIC_BRAND_PHONETIC[shortLang];
+  if (!dict) return text;
+  let out = text;
+  for (const [eng, nativeWord] of Object.entries(dict)) {
+    const escaped = eng.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`\\b${escaped}\\b`, "gi"), nativeWord);
+  }
+  return out;
+}
+
 async function translateTextContent(
   text: string,
   targetLang: string,
@@ -251,6 +317,32 @@ async function translateTextContent(
   }
   if (buf) segments.push(buf);
 
+  // 1. Primary: Google Translate GTX endpoint (fast + transliterates English brand names naturally)
+  try {
+    const gtxParts: string[] = [];
+    for (const seg of segments.slice(0, 8)) {
+      const gtxUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(
+        sourceShort
+      )}&tl=${encodeURIComponent(targetShort)}&dt=t&q=${encodeURIComponent(seg)}`;
+      const r = await fetch(gtxUrl);
+      if (!r.ok) throw new Error(`GTX HTTP ${r.status}`);
+      const json: any = await r.json();
+      const translatedSeg = Array.isArray(json?.[0])
+        ? json[0].map((item: any) => (Array.isArray(item) ? item[0] : "")).join("")
+        : "";
+      if (!translatedSeg.trim()) throw new Error("Empty GTX translation");
+      gtxParts.push(translatedSeg.trim());
+    }
+    const combined = localizeAsciiTerms(gtxParts.join(" ").trim(), targetShort);
+    if (combined) {
+      translationCache.set(cacheKey, combined);
+      return combined;
+    }
+  } catch (gtxErr: any) {
+    console.warn("Primary GTX translation failed, trying MyMemory fallback:", gtxErr?.message);
+  }
+
+  // 2. Fallback: MyMemory API
   try {
     const translatedParts: string[] = [];
     for (const seg of segments.slice(0, 6)) {
@@ -267,7 +359,7 @@ async function translateTextContent(
         translatedParts.push(seg);
       }
     }
-    const finalResult = translatedParts.join(" ").trim();
+    const finalResult = localizeAsciiTerms(translatedParts.join(" ").trim(), targetShort);
     if (finalResult) {
       translationCache.set(cacheKey, finalResult);
       return finalResult;
@@ -949,7 +1041,8 @@ app.get("/api/tts", async (req, res) => {
     }
 
     const shortLang = lang.split("-")[0].toLowerCase();
-    const cleanText = text.slice(0, 350).trim();
+    const localized = localizeAsciiTerms(text.trim(), shortLang);
+    const cleanText = localized.slice(0, 200).trim();
     const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(
       shortLang
     )}&client=tw-ob&q=${encodeURIComponent(cleanText)}`;

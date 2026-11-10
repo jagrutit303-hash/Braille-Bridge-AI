@@ -14,6 +14,7 @@ import {
   startListening,
   stopListening,
   getActiveLanguage,
+  prepareAudioForSpeech,
 } from "../services/speechService";
 import { generateICalendarEvent } from "../services/noticeService";
 import { SignalMark, SignalState } from "../components/SignalMark";
@@ -88,6 +89,7 @@ export const PlannerView: React.FC = () => {
   }, [eventDate, eventTime, eventDuration, localItems]);
 
   const speakInActiveLang = async (englishText: string) => {
+    prepareAudioForSpeech();
     const short = activeLang.split("-")[0].toLowerCase();
     if (short !== "en") {
       try {

@@ -666,7 +666,12 @@ assert(
 // 11. Intelligent Punctuation, Grounded Array QA & Agent Advisory Suite
 // ---------------------------------------------------------------------------
 console.log("\n11. Intelligent Punctuation, Grounded QA & Advisory Guidance Suite");
-import { formatTextForSpeech, splitSpeechSegmentsWithPauses, setActiveLanguage } from "../src/services/speechService";
+import {
+  formatTextForSpeech,
+  splitSpeechSegmentsWithPauses,
+  setActiveLanguage,
+  normalizeTextForSpeechLang,
+} from "../src/services/speechService";
 import { setActiveDocumentContext } from "../src/services/appContextService";
 import { askNotesQuestion, explainDifficultConcept } from "../src/services/studyService";
 
@@ -883,6 +888,31 @@ assert(
     consumedTrans?.tableId === "kn-in-g1" &&
     consumePendingTranslatorLoad() === null,
   "Script Knowledge Vault practice handoff loads target symbol and script once"
+);
+
+// Hindi & Indic Welcome Tour Localization Checks
+const hiTourPhrases = getPhrases("hi-IN");
+assert(
+  Boolean(hiTourPhrases.welcomeTour) &&
+    !/[A-Za-z]/.test(hiTourPhrases.welcomeTour) &&
+    !/[A-Za-z]/.test(hiTourPhrases.onboardingSpokenIntro),
+  "Hindi Welcome Tour and Onboarding speech strings contain 100% Devanagari phonetics (zero stray ASCII spelling)"
+);
+
+for (const langCode of ["hi-IN", "kn-IN", "ta-IN", "bn-IN"]) {
+  const phr = getPhrases(langCode);
+  assert(
+    phr.welcomeTour.length > 40 && !/[A-Za-z]/.test(phr.onboardingSpokenIntro),
+    `Localized welcomeTour & onboardingSpokenIntro for ${langCode} use pure native script`
+  );
+}
+
+const hiNormalized = normalizeTextForSpeechLang("Welcome to BrailleBridge AI with PDF OCR and Alt+V", "hi");
+assert(
+  !hiNormalized.includes("Braille") &&
+    !hiNormalized.includes("PDF") &&
+    hiNormalized.includes("ब्रेल ब्रिज ए आई"),
+  "Indic speech normalizer converts stray ASCII brand & acronym tokens to Devanagari phonetics"
 );
 
 // ---------------------------------------------------------------------------
