@@ -42,7 +42,19 @@ body {
   background-color: var(--canvas);
   color: var(--text);
   min-height: 100vh;
+  overflow-x: clip;
+  overflow-wrap: break-word;
   letter-spacing: 0.01em;
+}
+
+@media (max-width: 640px) {
+  button,
+  [role="button"],
+  select,
+  input[type="file"],
+  label[class*="cursor-pointer"] {
+    min-height: 40px;
+  }
 }
 
 h1, h2, h3, h4, .font-serif {

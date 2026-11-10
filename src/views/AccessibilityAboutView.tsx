@@ -84,7 +84,7 @@ export const AccessibilityAboutView: React.FC<AccessibilityAboutViewProps> = ({
   }, [fontSizeScale, isHighContrast, colorVisionMode, micAvailable]);
 
   return (
-    <main id="main-content" className="max-w-5xl mx-auto px-6 py-10">
+    <main id="main-content" className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       {/* Eyebrow & Page Title */}
       <p className="text-xs font-bold uppercase tracking-wider text-[#4b5750] mb-1">
         Product notes
@@ -285,43 +285,43 @@ export const AccessibilityAboutView: React.FC<AccessibilityAboutViewProps> = ({
           Keyboard Navigation Guide
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Switch Pages (Home to Accessibility)</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">Alt + 1 .. 7</kbd>
           </div>
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Voice Agent (Talk to BrailleBridge)</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">Alt + V</kbd>
           </div>
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Voice Guide & Onboarding</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">Alt + H</kbd>
           </div>
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Start / Pause Voice Reading on Any Screen</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">Space</kbd>
           </div>
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Silence Speech Immediately</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">Escape</kbd>
           </div>
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Open Progress & Saved Dashboard</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">Alt + D or Alt + 9</kbd>
           </div>
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Open Ask Agent Drawer (Text/Voice)</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">Alt + Q</kbd>
           </div>
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Perkins 6-Key Braille</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">S D F & J K L</kbd>
           </div>
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Pattern Builder Chords</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">1 .. 6 keys</kbd>
           </div>
-          <div className="flex items-center justify-between p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-[#F7F5EF] rounded border border-[#d8d7d0]">
             <span className="text-[#202522]">Skip to Main Content</span>
             <kbd className="font-mono bg-white px-2 py-0.5 border rounded">Tab on page load</kbd>
           </div>

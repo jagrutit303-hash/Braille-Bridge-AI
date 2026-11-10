@@ -71,11 +71,11 @@ export const Header: React.FC<HeaderProps> = ({
         Skip to main content
       </a>
 
-      <header className="flex items-center justify-between gap-6 px-6 py-3.5 border-b border-[#d8d7d0] bg-[#fffefa]/95 backdrop-blur-sm sticky top-0 z-40">
+      <header className="flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 py-2.5 sm:py-3.5 border-b border-[#d8d7d0] bg-[#fffefa]/95 backdrop-blur-sm sticky top-0 z-40">
         {/* Wordmark */}
         <button
           onClick={() => onNavigate("home")}
-          className="flex items-center gap-2.5 text-left text-lg font-serif font-bold tracking-tight text-[#202522] whitespace-nowrap shrink-0 hover:opacity-85 transition-opacity"
+          className="flex items-center gap-2 text-left text-base sm:text-lg font-serif font-bold tracking-tight text-[#202522] whitespace-nowrap shrink-0 hover:opacity-85 transition-opacity"
           aria-label="BrailleBridge AI Home"
         >
           <span
@@ -117,17 +117,17 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
 
         {/* Global Controls & Voice First Trigger */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
           {/* Multilingual Voice Language Selector */}
-          <div className="flex items-center gap-1.5 bg-[#F7F5EF] border border-[#d8d7d0] rounded px-2 py-1 text-xs">
-            <span className="text-[11px] font-bold text-[#4b5750] hidden sm:inline" aria-hidden="true">
+          <div className="flex items-center gap-1 bg-[#F7F5EF] border border-[#d8d7d0] rounded px-1.5 sm:px-2 py-1 text-xs min-w-0 max-w-[125px] sm:max-w-none">
+            <span className="text-[11px] font-bold text-[#4b5750] hidden sm:inline shrink-0" aria-hidden="true">
               🗣
             </span>
             <select
               value={currentLang}
               onChange={(e) => handleLanguageChange(e.target.value)}
               aria-label="Select voice and reading language"
-              className="bg-transparent font-semibold text-[#202522] text-xs focus:outline-none cursor-pointer"
+              className="bg-transparent font-semibold text-[#202522] text-xs focus:outline-none cursor-pointer w-full truncate"
             >
               {SUPPORTED_LANGUAGES.map((lang) => (
                 <option key={lang.code} value={lang.code}>
@@ -167,24 +167,25 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Universal Voice First Action Button */}
           <button
             onClick={() => onNavigate("voice")}
-            className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#3155E7] rounded hover:bg-[#233fbe] transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 shadow-sm"
+            className="px-2.5 sm:px-3.5 py-1.5 text-xs font-bold text-white bg-[#3155E7] rounded hover:bg-[#233fbe] transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 shadow-sm"
             aria-label="Open Voice Agent, shortcut Alt plus V"
             title="Activate Voice Agent (Alt+V)"
           >
             <span aria-hidden="true">🎙</span>
-            <span>Voice Agent</span>
+            <span className="hidden sm:inline">Voice Agent</span>
+            <span className="sm:hidden">Agent</span>
             <kbd className="hidden lg:inline font-mono text-[10px] bg-white/20 px-1 py-0.5 rounded">Alt+V</kbd>
           </button>
         </div>
       </header>
 
       {/* Mobile & Compact Tablet Nav Bar */}
-      <div className="xl:hidden flex items-center overflow-x-auto gap-2 px-4 py-2 border-b border-[#d8d7d0] bg-[#eeece5]">
+      <div className="xl:hidden flex items-center overflow-x-auto gap-2 px-3 sm:px-4 py-2 border-b border-[#d8d7d0] bg-[#eeece5]">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
-            className={`px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap shrink-0 ${
+            className={`px-3 py-2 text-xs font-medium rounded whitespace-nowrap shrink-0 ${
               currentPage === item.id
                 ? "bg-[#3155E7] text-white font-bold"
                 : "bg-white text-[#4b5750] border border-[#d8d7d0]"
@@ -193,6 +194,16 @@ export const Header: React.FC<HeaderProps> = ({
             {item.label}
           </button>
         ))}
+        <button
+          onClick={() => onNavigate("dashboard")}
+          className={`md:hidden px-3 py-2 text-xs font-bold rounded border whitespace-nowrap shrink-0 ${
+            currentUser
+              ? "bg-[#e9f5ef] text-[#0f8872] border-[#c2e4d3]"
+              : "bg-[#fffefa] text-[#2847cf] border-[#c7d1f7]"
+          }`}
+        >
+          {currentUser ? `👤 ${currentUser.name.split(" ")[0]}` : "🔐 Sign In"}
+        </button>
       </div>
     </>
   );

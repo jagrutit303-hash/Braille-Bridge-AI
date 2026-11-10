@@ -228,7 +228,7 @@ export const BrailleGamesView: React.FC = () => {
     scoreState.attempts > 0 ? Math.round((scoreState.correct / scoreState.attempts) * 100) : 0;
 
   return (
-    <main id="main-content" className="max-w-5xl mx-auto px-6 py-10">
+    <main id="main-content" className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       {/* Eyebrow & Title */}
       <p className="text-xs font-bold uppercase tracking-wider text-[#4b5750] mb-1">
         Interactive Academy
@@ -282,7 +282,7 @@ export const BrailleGamesView: React.FC = () => {
 
       {/* Score Dashboard & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-[#fffefa] border border-[#d8d7d0] rounded-md mb-8 text-xs">
-        <div className="flex flex-wrap items-center gap-6">
+        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
           <div>
             <span className="text-[#59685d] block">Current Streak</span>
             <strong className="text-base font-bold text-[#3155E7]">🔥 {scoreState.streak}</strong>
@@ -303,8 +303,8 @@ export const BrailleGamesView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <label className="text-xs text-[#59685d] flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-xs text-[#59685d] flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
             <span>Language:</span>
             <select
               value={selectedLanguage}
@@ -312,7 +312,7 @@ export const BrailleGamesView: React.FC = () => {
                 setSelectedLanguage(e.target.value);
                 startNewQuestion(selectedGame, e.target.value);
               }}
-              className="p-1 bg-[#F7F5EF] border border-[#a6aaa2] rounded text-xs text-[#202522]"
+              className="p-1.5 bg-[#F7F5EF] border border-[#a6aaa2] rounded text-xs text-[#202522] w-full sm:w-auto max-w-full"
             >
               {Object.values(BRAILLE_TABLES).map((t) => (
                 <option key={t.id} value={t.id}>
@@ -324,7 +324,7 @@ export const BrailleGamesView: React.FC = () => {
 
           <button
             onClick={handleResetProgress}
-            className="px-2.5 py-1 text-xs text-[#9b302d] border border-transparent hover:border-[#9b302d] rounded transition-colors"
+            className="px-2.5 py-1.5 text-xs text-[#9b302d] border border-transparent hover:border-[#9b302d] rounded transition-colors"
           >
             Reset Progress
           </button>
@@ -334,12 +334,12 @@ export const BrailleGamesView: React.FC = () => {
       {/* Game Card */}
       {currentQuestion && (
         <section
-          className="p-6 bg-[#fffefa] border border-[#d8d7d0] border-t-4 border-t-[#3155E7] rounded-md shadow-sm mb-8 animate-result"
+          className="p-4 sm:p-6 bg-[#fffefa] border border-[#d8d7d0] border-t-4 border-t-[#3155E7] rounded-md shadow-sm mb-8 animate-result"
           role="region"
           aria-label={`Question: ${currentQuestion.prompt}`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between pb-3 mb-4 border-b border-[#d8d7d0]">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-4 border-b border-[#d8d7d0]">
             <span className="text-xs font-bold uppercase tracking-wider text-[#3155E7]">
               {formatGameTitle(selectedGame)} · {currentQuestion.language || "Standard"}
             </span>

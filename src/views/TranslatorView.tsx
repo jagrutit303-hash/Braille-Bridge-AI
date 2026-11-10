@@ -198,7 +198,7 @@ export const TranslatorView: React.FC = () => {
   });
 
   return (
-    <main id="main-content" className="max-w-5xl mx-auto px-6 py-10">
+    <main id="main-content" className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       {/* Eyebrow & Page Title */}
       <p className="text-xs font-bold uppercase tracking-wider text-[#4b5750] mb-1">
         Translation studio
@@ -269,7 +269,7 @@ export const TranslatorView: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-3 pt-3 border-t border-[#eeece5] flex flex-wrap items-center justify-between text-xs text-[#59685d]">
+        <div className="mt-3 pt-3 border-t border-[#eeece5] flex flex-wrap items-center justify-between gap-2 text-xs text-[#59685d]">
           <span>
             Script: <strong>{currentTableInfo.script}</strong> · Grade: <strong>{currentTableInfo.grade}</strong> · Table file: <code className="font-mono bg-[#eeece5] px-1 rounded">{currentTableInfo.table}</code>
           </span>

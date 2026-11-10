@@ -107,11 +107,11 @@ export const PerkinsKeyboard: React.FC<PerkinsKeyboardProps> = ({
   return (
     <div
       data-perkins-active="true"
-      className="p-4 bg-[#eeece5] border border-[#d8d7d0] rounded-md my-3"
+      className="p-3 sm:p-4 bg-[#eeece5] border border-[#d8d7d0] rounded-md my-3"
       role="region"
       aria-label="Perkins 6-key Braille input keyboard"
     >
-      <div className="flex items-center justify-between mb-3 pb-2 border-b border-[#d8d7d0]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-2 border-b border-[#d8d7d0]">
         <div>
           <span className="text-xs font-bold uppercase tracking-wider text-[#4b5750]">
             Perkins 6-Key Simulator
@@ -121,23 +121,23 @@ export const PerkinsKeyboard: React.FC<PerkinsKeyboardProps> = ({
             <kbd className="font-mono bg-white px-1 border rounded">J-K-L</kbd> (dots 4-5-6), or buttons below.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
+        <div className="flex items-center justify-between sm:justify-end gap-3">
+          <div className="text-left sm:text-right">
             <span className="text-2xl font-mono text-[#3155E7] select-none">{previewChar}</span>
             <p className="text-[11px] text-[#4b5750]">{desc}</p>
           </div>
           <button
             onClick={commitCell}
             disabled={activeDots.length === 0}
-            className="px-3 py-1.5 bg-[#3155E7] text-white text-xs font-bold rounded hover:bg-[#233fbe] disabled:opacity-40 transition-colors"
+            className="px-3 py-2 bg-[#3155E7] text-white text-xs font-bold rounded hover:bg-[#233fbe] disabled:opacity-40 transition-colors shrink-0"
           >
             Insert Cell ↵
           </button>
         </div>
       </div>
 
-      {/* 6 Perkins keys layout */}
-      <div className="grid grid-cols-7 gap-2 max-w-lg mx-auto py-2">
+      {/* 6 Perkins keys layout: 3+3+Space on mobile, single 7-column row on >=640px */}
+      <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 max-w-lg mx-auto py-2">
         {/* Dot 3 (Key S) */}
         <button
           onClick={() => toggleDot(3)}
@@ -183,10 +183,10 @@ export const PerkinsKeyboard: React.FC<PerkinsKeyboardProps> = ({
           <span className="text-[10px] text-[#59685d]">F</span>
         </button>
 
-        {/* Space Bar Center */}
+        {/* Space Bar Center (bottom full-width on phones, center key on desktop) */}
         <button
           onClick={insertSpace}
-          className="h-16 rounded border bg-[#fffefa] text-[#202522] border-[#d8d7d0] hover:border-[#3155E7] flex flex-col items-center justify-center transition-all"
+          className="col-span-3 sm:col-span-1 order-last sm:order-none h-12 sm:h-16 rounded border bg-[#fffefa] text-[#202522] border-[#d8d7d0] hover:border-[#3155E7] flex sm:flex-col items-center justify-center gap-2 sm:gap-0 transition-all"
           aria-label="Space bar"
         >
           <span className="text-xs font-bold">Space</span>

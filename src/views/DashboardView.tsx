@@ -372,7 +372,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   );
 
   return (
-    <main id="main-content" className="max-w-6xl mx-auto px-6 py-10 space-y-8">
+    <main id="main-content" className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-6 sm:space-y-8">
       {/* Header Row */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -477,7 +477,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
 
-          <form onSubmit={handleAuthSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+          <form onSubmit={handleAuthSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
             {authMode === "register" && (
               <div>
                 <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-name">
@@ -514,7 +514,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-password">
                 Password (min 6 characters)
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   id="auth-password"
                   type="password"
@@ -523,7 +523,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   value={authPassword}
                   onChange={(e) => setAuthPassword(e.target.value)}
                   placeholder="••••••"
-                  className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm"
+                  className="w-full min-w-0 px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm"
                 />
                 <button
                   type="submit"

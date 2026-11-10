@@ -45,7 +45,7 @@ export const BrailleCellInspector: React.FC<BrailleCellInspectorProps> = ({
         )}
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
         {/* 6-dot matrix */}
         <div
           className="grid grid-cols-2 gap-x-5 gap-y-3.5 p-3 bg-[#eeece5] rounded border border-[#d8d7d0]"

@@ -357,7 +357,7 @@ export const PlannerView: React.FC = () => {
       : localItems;
 
   return (
-    <main id="main-content" className="max-w-5xl mx-auto px-6 py-10">
+    <main id="main-content" className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       {/* Eyebrow & Title */}
       <p className="text-xs font-bold uppercase tracking-wider text-[#3155E7] mb-1">
         Guided Schedule & Reminders
@@ -372,20 +372,20 @@ export const PlannerView: React.FC = () => {
 
       {/* Summary Metrics Strip */}
       <section
-        className="grid grid-cols-3 gap-4 mb-6"
+        className="grid grid-cols-3 gap-2 sm:gap-4 mb-6"
         aria-label="Study schedule summary"
       >
-        <div className="p-4 bg-[#fffefa] border border-[#d8d7d0] rounded-md text-center">
-          <span className="text-xs font-bold uppercase text-[#59685d] block">Today</span>
-          <strong className="text-2xl font-bold text-[#3155E7]">{todaySessions.length}</strong>
+        <div className="p-2.5 sm:p-4 bg-[#fffefa] border border-[#d8d7d0] rounded-md text-center">
+          <span className="text-[11px] sm:text-xs font-bold uppercase text-[#59685d] block">Today</span>
+          <strong className="text-xl sm:text-2xl font-bold text-[#3155E7]">{todaySessions.length}</strong>
         </div>
-        <div className="p-4 bg-[#fffefa] border border-[#d8d7d0] rounded-md text-center">
-          <span className="text-xs font-bold uppercase text-[#59685d] block">Active Upcoming</span>
-          <strong className="text-2xl font-bold text-[#202522]">{upcomingSessions.length}</strong>
+        <div className="p-2.5 sm:p-4 bg-[#fffefa] border border-[#d8d7d0] rounded-md text-center">
+          <span className="text-[11px] sm:text-xs font-bold uppercase text-[#59685d] block">Upcoming</span>
+          <strong className="text-xl sm:text-2xl font-bold text-[#202522]">{upcomingSessions.length}</strong>
         </div>
-        <div className="p-4 bg-[#fffefa] border border-[#d8d7d0] rounded-md text-center">
-          <span className="text-xs font-bold uppercase text-[#59685d] block">Completed</span>
-          <strong className="text-2xl font-bold text-emerald-600">{completedSessions.length}</strong>
+        <div className="p-2.5 sm:p-4 bg-[#fffefa] border border-[#d8d7d0] rounded-md text-center">
+          <span className="text-[11px] sm:text-xs font-bold uppercase text-[#59685d] block">Completed</span>
+          <strong className="text-xl sm:text-2xl font-bold text-emerald-600">{completedSessions.length}</strong>
         </div>
       </section>
 

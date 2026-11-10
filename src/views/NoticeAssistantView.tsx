@@ -264,7 +264,7 @@ export const NoticeAssistantView: React.FC = () => {
   });
 
   return (
-    <main id="main-content" className="max-w-5xl mx-auto px-6 py-10">
+    <main id="main-content" className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       {/* Eyebrow & Page Title */}
       <p className="text-xs font-bold uppercase tracking-wider text-[#4b5750] mb-1">
         Form & Circular Inspector

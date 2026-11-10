@@ -316,7 +316,7 @@ export const VoiceAssistantView: React.FC<VoiceAssistantViewProps> = ({
   };
 
   return (
-    <main id="main-content" className="max-w-5xl mx-auto px-6 py-10">
+    <main id="main-content" className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       {/* Header */}
       <p className="text-xs font-bold uppercase tracking-wider text-[#3155E7] mb-1">
         Voice-First Workspace
@@ -358,7 +358,7 @@ export const VoiceAssistantView: React.FC<VoiceAssistantViewProps> = ({
             value={language}
             onChange={(e) => handleLanguageSelect(e.target.value)}
             aria-label="Choose active voice language"
-            className="p-2.5 bg-[#F7F5EF] border border-[#a6aaa2] rounded text-sm font-bold text-[#202522] focus:border-[#3155E7] outline-none"
+            className="w-full sm:w-auto max-w-full p-2.5 bg-[#F7F5EF] border border-[#a6aaa2] rounded text-sm font-bold text-[#202522] focus:border-[#3155E7] outline-none"
           >
             {SUPPORTED_LANGUAGES.map((l) => (
               <option key={l.code} value={l.code}>

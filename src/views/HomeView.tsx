@@ -229,11 +229,11 @@ export const HomeView: React.FC<HomeViewProps> = ({
   ];
 
   return (
-    <main id="main-content" className="max-w-5xl mx-auto px-6 py-10 space-y-16">
+    <main id="main-content" className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10 space-y-10 sm:space-y-16">
       {/* =================================================================== */}
       {/* 1. FLOWY ANIMATED LANDING HERO                                      */}
       {/* =================================================================== */}
-      <section className="relative overflow-hidden rounded-2xl border border-[#d8d7d0] bg-[#fffefa] p-8 sm:p-12 shadow-sm">
+      <section className="relative overflow-hidden rounded-2xl border border-[#d8d7d0] bg-[#fffefa] p-5 sm:p-8 lg:p-12 shadow-sm">
         {/* Soft Floating Ambient Aura */}
         <motion.div
           aria-hidden="true"
@@ -264,7 +264,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.45, delay: 0.08 }}
-              className="text-4xl sm:text-5xl font-bold text-[#202522] leading-[1.12] tracking-tight"
+              className="text-3xl sm:text-5xl font-bold text-[#202522] leading-[1.12] tracking-tight"
             >
               Every word, voice, and Braille dot—flowing with you.
             </motion.h1>

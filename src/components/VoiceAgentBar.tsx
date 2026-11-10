@@ -462,7 +462,7 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
 
       {/* Floating Persistent Activation Bar (Always Accessible) */}
       <div
-        className="fixed bottom-4 right-4 z-50 flex items-center gap-2"
+        className="fixed bottom-3 right-3 sm:bottom-4 sm:right-4 z-50 flex items-center gap-2"
         role="region"
         aria-label="Voice Agent Control"
       >
@@ -473,7 +473,7 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
               handleToggleListening();
             }
           }}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-full shadow-lg border text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-full shadow-lg border text-xs sm:text-sm font-bold transition-all ${
             isListening
               ? "bg-[#9b302d] text-white border-[#7b2421] ring-4 ring-[#9b302d]/30 animate-pulse"
               : isHighContrast
@@ -506,20 +506,20 @@ export const VoiceAgentBar: React.FC<VoiceAgentBarProps> = ({
       {/* Expanded Voice Agent Panel */}
       {isOpen && (
         <div
-          className="fixed bottom-20 right-4 left-4 sm:left-auto sm:w-[500px] z-50 bg-[#fffefa] border-2 border-[#3155E7] rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all text-[#202522]"
+          className="fixed bottom-[4.5rem] right-3 left-3 sm:bottom-20 sm:right-4 sm:left-auto sm:w-[500px] max-h-[78vh] z-50 bg-[#fffefa] border-2 border-[#3155E7] rounded-xl shadow-2xl overflow-hidden flex flex-col transition-all text-[#202522]"
           role="dialog"
           aria-labelledby="agent-panel-title"
           aria-modal="false"
         >
           {/* Header */}
-          <div className="bg-[#202522] text-white px-4 py-3 flex items-center justify-between">
+          <div className="bg-[#202522] text-white px-3.5 sm:px-4 py-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#3155E7] animate-ping" />
               <h2 id="agent-panel-title" className="text-sm font-bold">
                 BrailleBridge Voice Agent
               </h2>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-2">
               <button
                 onClick={() => setIsOnboardingOpen(true)}
                 className="text-white/80 hover:text-white text-xs font-bold px-2 py-1 rounded hover:bg-white/10"

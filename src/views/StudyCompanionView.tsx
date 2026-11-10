@@ -456,7 +456,7 @@ Modern screen readers rely on the accessibility tree (DOM exposure via WAI-ARIA)
   const takeaways = docResult?.text ? extractKeyTakeaways(docResult.text) : [];
 
   return (
-    <main id="main-content" className="max-w-5xl mx-auto px-6 py-10">
+    <main id="main-content" className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       {/* Eyebrow & Title */}
       <p className="text-xs font-bold uppercase tracking-wider text-[#4b5750] mb-1">
         Accessible Tutor
@@ -663,7 +663,7 @@ Modern screen readers rely on the accessibility tree (DOM exposure via WAI-ARIA)
               onChange={(e) => setConceptQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleExplainConcept()}
               placeholder="e.g. array, Refreshable display, UEB…"
-              className="flex-1 min-w-[180px] p-2.5 bg-[#F7F5EF] text-[#202522] text-sm border border-[#a6aaa2] rounded focus:border-[#3155E7] outline-none"
+              className="flex-1 min-w-[140px] sm:min-w-[180px] p-2.5 bg-[#F7F5EF] text-[#202522] text-sm border border-[#a6aaa2] rounded focus:border-[#3155E7] outline-none"
               aria-label="Concept to explain"
             />
             <VoiceDictationButton
@@ -718,7 +718,7 @@ Modern screen readers rely on the accessibility tree (DOM exposure via WAI-ARIA)
               onChange={(e) => setUserQuestion(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAskQuestion()}
               placeholder="Ask anything about the notes…"
-              className="flex-1 min-w-[180px] p-2.5 bg-[#F7F5EF] text-[#202522] text-sm border border-[#a6aaa2] rounded focus:border-[#3155E7] outline-none"
+              className="flex-1 min-w-[140px] sm:min-w-[180px] p-2.5 bg-[#F7F5EF] text-[#202522] text-sm border border-[#a6aaa2] rounded focus:border-[#3155E7] outline-none"
               aria-label="Question to ask about notes"
             />
             <VoiceDictationButton

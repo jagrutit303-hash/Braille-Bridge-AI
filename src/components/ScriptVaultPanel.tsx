@@ -217,7 +217,7 @@ export function ScriptVaultPanel({
           ))}
         </div>
 
-        <div className="flex items-center gap-2 min-w-[260px]">
+        <div className="flex items-center gap-2 w-full lg:w-auto lg:min-w-[280px]">
           <div className="relative flex-1">
             <Search
               className="w-4 h-4 text-[#59685d] absolute left-3 top-1/2 -translate-y-1/2"
