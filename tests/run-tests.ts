@@ -1022,19 +1022,34 @@ try {
       "Live API: Incorrect password returns 401 with structured code INVALID_PASSWORD"
     );
 
-    // 5. Login with non-existent email returns structured code
-    const nonExistRes = await fetch("http://localhost:3000/api/auth/login", {
+    // 5. Login with non-existent email seamlessly auto-creates student account
+    const autoCreateEmail = `autocreate_${Date.now()}@college.edu`;
+    const autoCreateRes = await fetch("http://localhost:3000/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "nonexistent_email_123@college.edu",
-        password: "password123",
+        email: autoCreateEmail,
+        password: "autocreated_pass_123",
       }),
     });
-    const nonExistJson = await nonExistRes.json();
+    const autoCreateJson = await autoCreateRes.json();
     assert(
-      nonExistRes.status === 401 && nonExistJson.code === "USER_NOT_FOUND",
-      "Live API: Unknown email returns 401 with structured code USER_NOT_FOUND"
+      autoCreateRes.status === 200 && Boolean(autoCreateJson.token) && Boolean(autoCreateJson.user),
+      "Live API: First-time sign in seamlessly auto-creates student account and logs in"
+    );
+
+    // 5b. Short password rejected
+    const shortPassRes = await fetch("http://localhost:3000/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: `shortpass_${Date.now()}@college.edu`,
+        password: "123",
+      }),
+    });
+    assert(
+      shortPassRes.status === 400,
+      "Live API: Passwords under 6 characters are rejected with 400"
     );
 
     // 6. Reset password endpoint

@@ -1767,6 +1767,21 @@ app.post("/api/supabase/preferences", async (req, res) => {
 // 7. One-Time Student Authentication & Script Vault Persistence
 // ---------------------------------------------------------------------------
 
+async function withSupabaseTimeout<T>(fn: () => Promise<T>, timeoutMs = 800): Promise<T | null> {
+  if (!supabase) return null;
+  try {
+    let timer: NodeJS.Timeout;
+    const timeoutPromise = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), timeoutMs);
+    });
+    const result = await Promise.race([fn(), timeoutPromise]);
+    clearTimeout(timer!);
+    return result as T;
+  } catch {
+    return null;
+  }
+}
+
 function hashPasswordWithSalt(password: string, salt?: string): { hash: string; salt: string } {
   const usedSalt = salt || crypto.randomBytes(16).toString("hex");
   const hash = crypto.scryptSync(password, usedSalt, 64).toString("hex");
@@ -1793,6 +1808,15 @@ function extractBearerToken(req: express.Request): string {
   return "";
 }
 
+function formatNameFromEmail(email: string): string {
+  const raw = (email.split("@")[0] || "Student").replace(/[._\-\d]+/g, " ").trim();
+  if (!raw) return "Student";
+  return raw
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 async function resolveUserFromRequestAsync(req: express.Request) {
   const token = extractBearerToken(req);
   if (!token) return null;
@@ -1805,17 +1829,15 @@ async function resolveUserFromRequestAsync(req: express.Request) {
 
   if (supabase) {
     try {
-      const { data: sess } = await supabase
-        .from("student_sessions")
-        .select("user_id")
-        .eq("token", token)
-        .maybeSingle();
-      if (sess?.user_id) {
-        const { data: acc } = await supabase
-          .from("student_accounts")
-          .select("*")
-          .eq("id", sess.user_id)
-          .maybeSingle();
+      const sessRes: any = await withSupabaseTimeout(() =>
+        supabase!.from("student_sessions").select("user_id").eq("token", token).maybeSingle()
+      );
+      const userId = sessRes?.data?.user_id;
+      if (userId) {
+        const accRes: any = await withSupabaseTimeout(() =>
+          supabase!.from("student_accounts").select("*").eq("id", userId).maybeSingle()
+        );
+        const acc = accRes?.data;
         if (acc) {
           const hydrated = {
             id: acc.id,
@@ -1857,14 +1879,12 @@ app.post("/api/auth/register", async (req, res) => {
   let existing = inMemoryStore.users.find((u) => u.email === email);
   if (!existing && supabase) {
     try {
-      const { data } = await supabase
-        .from("student_accounts")
-        .select("id")
-        .eq("email", email)
-        .maybeSingle();
-      if (data) existing = data as any;
+      const supRes: any = await withSupabaseTimeout(() =>
+        supabase!.from("student_accounts").select("id").eq("email", email).maybeSingle()
+      );
+      if (supRes?.data) existing = supRes.data as any;
     } catch {
-      // ignore if table not initialized yet
+      // ignore
     }
   }
   if (existing) {
@@ -1893,8 +1913,8 @@ app.post("/api/auth/register", async (req, res) => {
   saveDiskDatabase();
 
   if (supabase) {
-    try {
-      await supabase.from("student_accounts").upsert({
+    withSupabaseTimeout(async () => {
+      await supabase!.from("student_accounts").upsert({
         id: user.id,
         name: user.name,
         email: user.email,
@@ -1902,14 +1922,12 @@ app.post("/api/auth/register", async (req, res) => {
         salt: user.salt,
         created_at: user.createdAt,
       });
-      await supabase.from("student_sessions").upsert({
+      await supabase!.from("student_sessions").upsert({
         token,
         user_id: user.id,
         created_at: user.createdAt,
       });
-    } catch {
-      // ignore if Supabase tables haven't been created yet
-    }
+    }).catch(() => {});
   }
 
   return res.json({
@@ -1929,12 +1947,11 @@ app.post("/api/auth/login", async (req, res) => {
   let user = inMemoryStore.users.find((u) => u.email === email);
   if (!user && supabase) {
     try {
-      const { data: acc } = await supabase
-        .from("student_accounts")
-        .select("*")
-        .eq("email", email)
-        .maybeSingle();
-      if (acc) {
+      const supRes: any = await withSupabaseTimeout(() =>
+        supabase!.from("student_accounts").select("*").eq("email", email).maybeSingle()
+      );
+      if (supRes?.data) {
+        const acc = supRes.data;
         user = {
           id: acc.id,
           name: acc.name,
@@ -1950,18 +1967,35 @@ app.post("/api/auth/login", async (req, res) => {
     }
   }
 
+  // If user does not exist yet: seamlessly auto-create the student account
   if (!user) {
-    return res.status(401).json({
-      error: "No account found with this email. Please check your spelling or switch to Create Account.",
-      code: "USER_NOT_FOUND",
-    });
-  }
+    if (password.length < 6) {
+      return res.status(400).json({
+        error: "Password must be at least 6 characters long.",
+        code: "PASSWORD_TOO_SHORT",
+      });
+    }
 
-  if (!verifyPasswordHash(password, user.salt, user.passwordHash)) {
-    return res.status(401).json({
-      error: "Incorrect password. Please verify your password, or use Reset Password.",
-      code: "INVALID_PASSWORD",
-    });
+    const autoName =
+      String(req.body?.name || "").trim() || formatNameFromEmail(email);
+    const { hash, salt } = hashPasswordWithSalt(password);
+    user = {
+      id: `user_${crypto.randomUUID()}`,
+      name: autoName,
+      email,
+      passwordHash: hash,
+      salt,
+      createdAt: new Date().toISOString(),
+    };
+    inMemoryStore.users.push(user);
+  } else {
+    // Existing user: verify password hash
+    if (!verifyPasswordHash(password, user.salt, user.passwordHash)) {
+      return res.status(401).json({
+        error: "Incorrect password for this student account. Please verify your password, or click Reset Password.",
+        code: "INVALID_PASSWORD",
+      });
+    }
   }
 
   const token = crypto.randomBytes(32).toString("hex");
@@ -1973,15 +2007,21 @@ app.post("/api/auth/login", async (req, res) => {
   saveDiskDatabase();
 
   if (supabase) {
-    try {
-      await supabase.from("student_sessions").upsert({
+    withSupabaseTimeout(async () => {
+      await supabase!.from("student_accounts").upsert({
+        id: user!.id,
+        name: user!.name,
+        email: user!.email,
+        password_hash: user!.passwordHash,
+        salt: user!.salt,
+        created_at: user!.createdAt,
+      });
+      await supabase!.from("student_sessions").upsert({
         token,
-        user_id: user.id,
+        user_id: user!.id,
         created_at: nowIso,
       });
-    } catch {
-      // ignore
-    }
+    }).catch(() => {});
   }
 
   return res.json({
@@ -2004,12 +2044,11 @@ app.post("/api/auth/reset-password", async (req, res) => {
   let user = inMemoryStore.users.find((u) => u.email === email);
   if (!user && supabase) {
     try {
-      const { data: acc } = await supabase
-        .from("student_accounts")
-        .select("*")
-        .eq("email", email)
-        .maybeSingle();
-      if (acc) {
+      const supRes: any = await withSupabaseTimeout(() =>
+        supabase!.from("student_accounts").select("*").eq("email", email).maybeSingle()
+      );
+      if (supRes?.data) {
+        const acc = supRes.data;
         user = {
           id: acc.id,
           name: acc.name,
@@ -2025,16 +2064,24 @@ app.post("/api/auth/reset-password", async (req, res) => {
     }
   }
 
-  if (!user) {
-    return res.status(404).json({
-      error: "No account found with this email to reset. Please create an account first.",
-      code: "USER_NOT_FOUND",
-    });
-  }
-
   const { hash, salt } = hashPasswordWithSalt(newPassword);
-  user.passwordHash = hash;
-  user.salt = salt;
+
+  if (!user) {
+    // If not found, auto-create with the new password
+    const autoName = formatNameFromEmail(email);
+    user = {
+      id: `user_${crypto.randomUUID()}`,
+      name: autoName,
+      email,
+      passwordHash: hash,
+      salt,
+      createdAt: new Date().toISOString(),
+    };
+    inMemoryStore.users.push(user);
+  } else {
+    user.passwordHash = hash;
+    user.salt = salt;
+  }
 
   const token = crypto.randomBytes(32).toString("hex");
   const nowIso = new Date().toISOString();
@@ -2045,23 +2092,21 @@ app.post("/api/auth/reset-password", async (req, res) => {
   saveDiskDatabase();
 
   if (supabase) {
-    try {
-      await supabase.from("student_accounts").upsert({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        password_hash: user.passwordHash,
-        salt: user.salt,
-        created_at: user.createdAt,
+    withSupabaseTimeout(async () => {
+      await supabase!.from("student_accounts").upsert({
+        id: user!.id,
+        name: user!.name,
+        email: user!.email,
+        password_hash: user!.passwordHash,
+        salt: user!.salt,
+        created_at: user!.createdAt,
       });
-      await supabase.from("student_sessions").upsert({
+      await supabase!.from("student_sessions").upsert({
         token,
-        user_id: user.id,
+        user_id: user!.id,
         created_at: nowIso,
       });
-    } catch {
-      // ignore
-    }
+    }).catch(() => {});
   }
 
   return res.json({
