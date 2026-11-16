@@ -5,203 +5,164 @@ export interface AuthUser {
   createdAt?: string;
 }
 
+const STUDENT_NAME_STORAGE_KEY = "braillebridge_student_name";
 const TOKEN_STORAGE_KEY = "braillebridge_auth_token";
 const USER_STORAGE_KEY = "braillebridge_auth_user";
 export const AUTH_CHANGE_EVENT = "braillebridge-auth-change";
 
+export function getStoredStudentName(): string {
+  if (typeof window === "undefined") return "Jagruti";
+  try {
+    const directName = window.localStorage.getItem(STUDENT_NAME_STORAGE_KEY);
+    if (directName && directName.trim().length > 0) {
+      return directName.trim();
+    }
+    const rawUser = window.localStorage.getItem(USER_STORAGE_KEY);
+    if (rawUser) {
+      const parsed = JSON.parse(rawUser);
+      if (parsed && typeof parsed.name === "string" && parsed.name.trim().length > 0) {
+        return parsed.name.trim();
+      }
+    }
+    return "Jagruti";
+  } catch {
+    return "Jagruti";
+  }
+}
+
 export function getStoredAuthToken(): string {
-  if (typeof window === "undefined") return "";
+  if (typeof window === "undefined") return "student_session_token";
   try {
-    return window.localStorage.getItem(TOKEN_STORAGE_KEY) || "";
+    return window.localStorage.getItem(TOKEN_STORAGE_KEY) || "student_session_token";
   } catch {
-    return "";
+    return "student_session_token";
   }
 }
 
-export function getStoredUser(): AuthUser | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(USER_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.name === "string" && typeof parsed.email === "string") {
-      return parsed;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+export function getStoredUser(): AuthUser {
+  const name = getStoredStudentName();
+  return {
+    id: "student_profile",
+    name: name || "Jagruti",
+    email: "",
+    createdAt: new Date().toISOString(),
+  };
 }
 
-function persistSession(token: string, user: AuthUser | null) {
-  if (typeof window === "undefined") return;
-  try {
-    if (token && user) {
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+export async function saveStudentName(name: string): Promise<AuthUser> {
+  const cleanName = (name || "").trim() || "Jagruti";
+  const user: AuthUser = {
+    id: "student_profile",
+    name: cleanName,
+    email: "",
+    createdAt: new Date().toISOString(),
+  };
+
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(STUDENT_NAME_STORAGE_KEY, cleanName);
       window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-    } else {
-      window.localStorage.removeItem(TOKEN_STORAGE_KEY);
-      window.localStorage.removeItem(USER_STORAGE_KEY);
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, "student_session_token");
+      window.dispatchEvent(new CustomEvent(AUTH_CHANGE_EVENT, { detail: user }));
+    } catch {
+      // ignore storage quota errors
     }
-    window.dispatchEvent(new CustomEvent(AUTH_CHANGE_EVENT, { detail: user }));
-  } catch {
-    // ignore storage quota errors
   }
+
+  // Also sync with backend disk store
+  try {
+    await fetch("/api/student/name", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: cleanName }),
+    });
+  } catch {
+    // offline graceful fallback
+  }
+
+  return user;
+}
+
+export async function clearStudentName(): Promise<void> {
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(STUDENT_NAME_STORAGE_KEY);
+      window.localStorage.removeItem(USER_STORAGE_KEY);
+      window.dispatchEvent(new CustomEvent(AUTH_CHANGE_EVENT, { detail: null }));
+    } catch {
+      // ignore
+    }
+  }
+}
+
+export async function restoreOneTimeSession(): Promise<AuthUser> {
+  const localName = getStoredStudentName();
+  if (localName && localName !== "Student") {
+    const user: AuthUser = {
+      id: "student_profile",
+      name: localName,
+      email: "",
+    };
+    return user;
+  }
+
+  try {
+    const res = await fetch("/api/student/name");
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data?.name && typeof data.name === "string" && data.name.trim().length > 0) {
+        return await saveStudentName(data.name.trim());
+      }
+    }
+  } catch {
+    // offline graceful fallback
+  }
+
+  return saveStudentName(localName || "Jagruti");
 }
 
 export async function registerStudentAccount(
   name: string,
-  email: string,
-  password: string
+  _email?: string,
+  _password?: string
 ): Promise<{ user?: AuthUser; error?: string; code?: string }> {
-  try {
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return {
-        error: data.error || "Could not create account. Please check your details.",
-        code: data.code,
-      };
-    }
-    if (data.token && data.user) {
-      persistSession(data.token, data.user);
-      return { user: data.user };
-    }
-    return { error: "Unexpected response while creating account." };
-  } catch {
-    return { error: "Unable to reach the sign-up service right now. Please try again." };
-  }
+  const user = await saveStudentName(name);
+  return { user };
 }
 
 export async function loginStudentAccount(
-  email: string,
-  password: string
+  nameOrEmail: string,
+  _password?: string
 ): Promise<{ user?: AuthUser; error?: string; code?: string }> {
-  try {
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return {
-        error: data.error || "Invalid email or password.",
-        code: data.code,
-      };
-    }
-    if (data.token && data.user) {
-      persistSession(data.token, data.user);
-      return { user: data.user };
-    }
-    return { error: "Unexpected response while signing in." };
-  } catch {
-    return { error: "Unable to reach the sign-in service right now. Please try again." };
-  }
+  const name = nameOrEmail.includes("@")
+    ? nameOrEmail.split("@")[0].replace(/[0-9]/g, "").trim() || nameOrEmail.split("@")[0]
+    : nameOrEmail;
+  const user = await saveStudentName(name || "Jagruti");
+  return { user };
 }
 
 export async function resetStudentPassword(
-  email: string,
-  newPassword: string
+  _email?: string,
+  _newPassword?: string
 ): Promise<{ user?: AuthUser; error?: string; code?: string }> {
-  try {
-    const res = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim().toLowerCase(), newPassword }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return {
-        error: data.error || "Could not reset password. Please try again.",
-        code: data.code,
-      };
-    }
-    if (data.token && data.user) {
-      persistSession(data.token, data.user);
-      return { user: data.user };
-    }
-    return { error: "Unexpected response while resetting password." };
-  } catch {
-    return { error: "Unable to reach the sign-in service right now. Please try again." };
-  }
-}
-
-export async function restoreOneTimeSession(): Promise<AuthUser | null> {
-  const token = getStoredAuthToken();
-  const cachedUser = getStoredUser();
-  if (!token) return null;
-
-  try {
-    const res = await fetch("/api/auth/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.status === 401) {
-      persistSession("", null);
-      return null;
-    }
-    if (res.ok) {
-      const data = await res.json().catch(() => ({}));
-      if (data.user) {
-        persistSession(token, data.user);
-        return data.user;
-      }
-    }
-  } catch {
-    // keep cached profile gracefully during temporary offline state
-  }
-  return cachedUser;
+  const user = getStoredUser();
+  return { user };
 }
 
 export async function logoutStudentAccount(): Promise<void> {
-  const token = getStoredAuthToken();
-  if (token) {
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    } catch {
-      // ignore offline logout failures
-    }
-  }
-  persistSession("", null);
+  await clearStudentName();
 }
 
 export async function updateStudentProfile(
   name: string,
-  email: string
+  _email?: string
 ): Promise<{ user?: AuthUser; error?: string }> {
-  const token = getStoredAuthToken();
-  if (!token) {
-    return { error: "Please sign in first to update your profile." };
+  const clean = (name || "").trim();
+  if (clean.length < 2) {
+    return { error: "Please enter a valid student name (at least 2 characters)." };
   }
-
-  try {
-    const res = await fetch("/api/auth/profile", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ name: name.trim(), email: email.trim() }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return { error: data.error || "Could not update profile details." };
-    }
-    if (data.user) {
-      persistSession(token, data.user);
-      return { user: data.user };
-    }
-    return { error: "Unexpected response while updating profile." };
-  } catch {
-    return { error: "Unable to reach the profile update service right now." };
-  }
+  const user = await saveStudentName(clean);
+  return { user };
 }
 
 export async function fetchVaultBookmarks(): Promise<string[]> {
@@ -252,4 +213,3 @@ export async function saveVaultBookmarks(items: string[]): Promise<boolean> {
     return false;
   }
 }
-

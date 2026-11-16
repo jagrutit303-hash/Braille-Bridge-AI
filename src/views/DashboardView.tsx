@@ -13,23 +13,17 @@ import {
   CheckCircle2,
   Circle,
   Sliders,
-  LogOut,
   UserCheck,
-  ShieldCheck,
   Pencil,
-  Eye,
-  EyeOff,
-  KeyRound,
+  Check,
+  Sparkles,
 } from "lucide-react";
 import { NavPage } from "../components/Header";
 import { ScriptVaultPanel } from "../components/ScriptVaultPanel";
 import {
   AuthUser,
-  loginStudentAccount,
-  logoutStudentAccount,
-  registerStudentAccount,
-  resetStudentPassword,
-  updateStudentProfile,
+  getStoredStudentName,
+  saveStudentName,
 } from "../services/authService";
 import { ScriptVaultKey } from "../services/brailleService";
 import {
@@ -102,23 +96,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     "All saved notes, notices, game streaks, and study timetable progress are synced here."
   );
 
-  // One-Time Student Login / Sign Up form state
-  const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login");
-  const [authName, setAuthName] = useState("");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authConfirmPassword, setAuthConfirmPassword] = useState("");
-  const [authShowPassword, setAuthShowPassword] = useState(false);
-  const [authSubmitting, setAuthSubmitting] = useState(false);
-  const [authError, setAuthError] = useState("");
-  const [authErrorCode, setAuthErrorCode] = useState<string | undefined>(undefined);
-
-  // Edit profile (name & email) state for signed-in users
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editSaving, setEditSaving] = useState(false);
-  const [editError, setEditError] = useState("");
+  // Student Profile (Name-Only) state
+  const [isEditingName, setIsEditingName] = useState<boolean>(false);
+  const [studentNameInput, setStudentNameInput] = useState<string>("");
+  const [nameSaving, setNameSaving] = useState<boolean>(false);
+  const [nameError, setNameError] = useState<string>("");
 
   const loadAllProgress = useCallback(async () => {
     setIsRefreshing(true);
@@ -204,92 +186,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return () => window.removeEventListener("braillebridge-space-read", onSpaceRead);
   });
 
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-    setAuthErrorCode(undefined);
+  const handleOpenEditName = () => {
+    const existing = currentUser?.name || getStoredStudentName() || "Jagruti";
+    setStudentNameInput(existing);
+    setNameError("");
+    setIsEditingName(true);
+  };
 
-    const cleanIdentifier = authEmail.trim().toLowerCase();
-    if (cleanIdentifier.length < 2) {
-      const msg = "Please enter your email address or username.";
-      setAuthError(msg);
+  const handleSaveStudentName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNameError("");
+    const clean = studentNameInput.trim();
+    if (clean.length < 2) {
+      const msg = "Please enter your name (at least 2 characters).";
+      setNameError(msg);
       speakText(msg, { lang: activeLang });
       return;
     }
 
-    if (authMode === "reset" && authPassword !== authConfirmPassword) {
-      const msg = "Passwords do not match. Please re-enter identical passwords.";
-      setAuthError(msg);
-      speakText(msg, { lang: activeLang });
-      return;
-    }
-
-    setAuthSubmitting(true);
+    setNameSaving(true);
     try {
-      let result;
-      if (authMode === "register") {
-        result = await registerStudentAccount(authName, cleanIdentifier, authPassword);
-      } else if (authMode === "login") {
-        result = await loginStudentAccount(cleanIdentifier, authPassword);
-      } else {
-        result = await resetStudentPassword(cleanIdentifier, authPassword);
-      }
-
-      if (result.error || !result.user) {
-        setAuthError(result.error || "Sign in failed. Please check your credentials.");
-        setAuthErrorCode(result.code);
-        speakText(result.error || "Sign in failed. Please check your credentials.", { lang: activeLang });
-        return;
-      }
-
-      onUserChange?.(result.user);
-      setAuthPassword("");
-      setAuthConfirmPassword("");
+      const updatedUser = await saveStudentName(clean);
+      onUserChange?.(updatedUser);
+      setIsEditingName(false);
       setSignalState("success");
-      setSignalMessage(`Signed in as ${result.user.name}. Your one-time session is saved on this device.`);
-      speakText(`Welcome ${result.user.name}. Your one-time student login is active on this dashboard.`, {
-        lang: activeLang,
-      });
+      setSignalMessage(`Student name updated to "${clean}".`);
+      speakText(`Student name updated to ${clean}.`, { lang: activeLang });
+    } catch {
+      setNameError("Could not update student name. Please try again.");
     } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    await logoutStudentAccount();
-    onUserChange?.(null);
-    setIsEditingProfile(false);
-    setSignalState("idle");
-    setSignalMessage("Signed out safely. Sign in again anytime on the dashboard.");
-    speakText("Signed out of your student session.", { lang: "en-US" });
-  };
-
-  const handleOpenEditProfile = () => {
-    if (!currentUser) return;
-    setEditName(currentUser.name);
-    setEditEmail(currentUser.email);
-    setEditError("");
-    setIsEditingProfile((prev) => !prev);
-  };
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setEditError("");
-    setEditSaving(true);
-    try {
-      const result = await updateStudentProfile(editName, editEmail);
-      if (result.error || !result.user) {
-        setEditError(result.error || "Could not save profile changes.");
-        speakText(result.error || "Could not save profile changes.", { lang: "en-US" });
-        return;
-      }
-      onUserChange?.(result.user);
-      setIsEditingProfile(false);
-      setSignalState("success");
-      setSignalMessage(`Profile updated for ${result.user.name}.`);
-      speakText(`Profile updated cleanly for ${result.user.name}.`, { lang: "en-US" });
-    } finally {
-      setEditSaving(false);
+      setNameSaving(false);
     }
   };
 
@@ -417,26 +343,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             Personal Learning Hub
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold text-[#202522]">
-            {currentUser ? `Welcome back, ${currentUser.name}` : "Student Progress & Saved Vault"}
+            {`Welcome back, ${currentUser?.name || getStoredStudentName() || "Student"}`}
           </h1>
           <p className="text-base text-[#4b5750] mt-2 max-w-2xl">
-            {currentUser
-              ? "Your one-time session is active. Track Braille accuracy, timetable sessions, saved documents, and the Script Knowledge Vault."
-              : "Track your Braille mastery streaks, timetable completion, saved study documents, Script Knowledge Vault, and analyzed college notices."}
+            Track your Braille mastery streaks, timetable completion, saved study documents, Script Knowledge Vault, and analyzed college notices.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          {currentUser && (
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="px-3.5 py-2.5 bg-[#fffefa] border border-[#d8d7d0] text-[#4b5750] text-xs font-bold rounded-md hover:border-[#9b302d] hover:text-[#9b302d] transition-colors flex items-center gap-1.5"
-            >
-              <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Sign Out</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleOpenEditName}
+            className="px-3.5 py-2.5 bg-[#fffefa] border border-[#c2e4d3] text-[#0f8872] text-xs font-bold rounded-md hover:bg-[#e9f5ef] transition-colors flex items-center gap-1.5 shadow-2xs"
+            title="Edit student name"
+          >
+            <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Edit Name</span>
+          </button>
           <button
             onClick={speakDashboardSummary}
             className="px-4 py-2.5 bg-[#3155E7] text-white text-xs font-bold rounded-md hover:bg-[#233fbe] transition-colors flex items-center gap-1.5 shadow-sm"
@@ -456,361 +379,100 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </motion.div>
 
-      {/* One-Time Student Sign In / Registration Card */}
-      {!currentUser ? (
-        <section
-          aria-label="One-time student account sign in"
-          className="p-6 bg-[#fffefa] border-2 border-[#c7d1f7] rounded-xl shadow-sm space-y-4"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#e4e8fb] text-[#2847cf] flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-5 h-5" aria-hidden="true" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-[#1b211d]">
-                  One-Time Student Access
+      {/* Student Profile & Personalization Banner */}
+      <section
+        aria-label="Student Profile"
+        className="p-5 sm:p-6 bg-[#fffefa] border-2 border-[#c2e4d3] rounded-2xl shadow-sm space-y-4"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-[#e9f5ef] text-[#0f8872] flex items-center justify-center shrink-0">
+              <UserCheck className="w-6 h-6" aria-hidden="true" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-[#1b211d]">
+                  Student: <span className="text-[#0f8872]">{currentUser?.name || getStoredStudentName() || "Jagruti"}</span>
                 </h2>
-                <p className="text-xs text-[#4e5b52] mt-0.5">
-                  Sign in or create your student account once — your name and dashboard stay remembered automatically on this browser.
-                </p>
-              </div>
-            </div>
-
-            <div className="inline-flex rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] p-0.5 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("login");
-                  setAuthError("");
-                  setAuthErrorCode(undefined);
-                }}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
-                  authMode === "login"
-                    ? "bg-[#3155E7] text-white shadow-sm"
-                    : "text-[#4e5b52] hover:text-[#1b211d]"
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("register");
-                  setAuthError("");
-                  setAuthErrorCode(undefined);
-                }}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
-                  authMode === "register"
-                    ? "bg-[#3155E7] text-white shadow-sm"
-                    : "text-[#4e5b52] hover:text-[#1b211d]"
-                }`}
-              >
-                Create Account
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode("reset");
-                  setAuthError("");
-                  setAuthErrorCode(undefined);
-                }}
-                className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
-                  authMode === "reset"
-                    ? "bg-[#3155E7] text-white shadow-sm"
-                    : "text-[#4e5b52] hover:text-[#1b211d]"
-                }`}
-              >
-                Reset Password
-              </button>
-            </div>
-          </div>
-
-          <form onSubmit={handleAuthSubmit} className="space-y-4">
-            <div
-              className={`grid gap-3 items-end ${
-                authMode === "login"
-                  ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-                  : authMode === "register"
-                  ? "grid-cols-1 md:grid-cols-3"
-                  : "grid-cols-1 md:grid-cols-3"
-              }`}
-            >
-              {authMode === "register" && (
-                <div>
-                  <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-name">
-                    Your Full Name
-                  </label>
-                  <input
-                    id="auth-name"
-                    type="text"
-                    required
-                    value={authName}
-                    onChange={(e) => setAuthName(e.target.value)}
-                    placeholder="e.g., Ananya Sharma"
-                    className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-email">
-                  Email Address or Username
-                </label>
-                <input
-                  id="auth-email"
-                  type="text"
-                  autoComplete="username"
-                  inputMode="email"
-                  required
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  placeholder="student@college.edu or username"
-                  className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-bold text-[#222824]" htmlFor="auth-password">
-                    {authMode === "reset" ? "New Password" : "Password (min 6 chars)"}
-                  </label>
-                  {authMode === "login" && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAuthMode("reset");
-                        setAuthError("");
-                        setAuthErrorCode(undefined);
-                      }}
-                      className="text-[11px] font-bold text-[#3155E7] hover:underline"
-                    >
-                      Forgot?
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <input
-                    id="auth-password"
-                    type={authShowPassword ? "text" : "password"}
-                    required
-                    minLength={6}
-                    value={authPassword}
-                    onChange={(e) => setAuthPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-3 py-2.5 pr-10 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setAuthShowPassword((prev) => !prev)}
-                    aria-label={authShowPassword ? "Hide password" : "Show password"}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#556358] hover:text-[#1b211d]"
-                  >
-                    {authShowPassword ? (
-                      <EyeOff className="w-4 h-4" aria-hidden="true" />
-                    ) : (
-                      <Eye className="w-4 h-4" aria-hidden="true" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {authMode === "reset" && (
-                <div>
-                  <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-confirm-password">
-                    Confirm New Password
-                  </label>
-                  <input
-                    id="auth-confirm-password"
-                    type={authShowPassword ? "text" : "password"}
-                    required
-                    minLength={6}
-                    value={authConfirmPassword}
-                    onChange={(e) => setAuthConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
-                  />
-                </div>
-              )}
-
-              {authMode === "login" && (
-                <div className="flex items-center">
-                  <button
-                    type="submit"
-                    disabled={authSubmitting}
-                    className="w-full px-4 py-2.5 rounded-lg bg-[#3155E7] text-white text-xs font-bold hover:bg-[#233fbe] disabled:opacity-50 min-h-[42px] transition flex items-center justify-center gap-1.5 shadow-sm"
-                  >
-                    <span>{authSubmitting ? "Please wait…" : "Sign In to Dashboard"}</span>
-                    <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {authMode !== "login" && (
-              <div className="flex justify-end pt-1">
-                <button
-                  type="submit"
-                  disabled={authSubmitting}
-                  className="px-6 py-2.5 rounded-lg bg-[#3155E7] text-white text-xs font-bold hover:bg-[#233fbe] disabled:opacity-50 min-h-[42px] transition flex items-center gap-2 shadow-sm"
-                >
-                  <span>
-                    {authSubmitting
-                      ? "Please wait…"
-                      : authMode === "register"
-                      ? "Create Account & Save"
-                      : "Reset Password & Sign In"}
-                  </span>
-                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                </button>
-              </div>
-            )}
-          </form>
-
-          {authError && (
-            <div
-              role="alert"
-              className="text-xs text-[#9b302d] bg-[#f6e2df] border border-[#e3b2ad] rounded-lg px-3 py-2.5 space-y-2"
-            >
-              <p className="font-semibold">{authError}</p>
-              {authErrorCode === "USER_EXISTS" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("login");
-                    setAuthError("");
-                    setAuthErrorCode(undefined);
-                  }}
-                  className="px-2.5 py-1 bg-[#3155E7] text-white text-[11px] font-bold rounded hover:bg-[#233fbe] transition"
-                >
-                  Switch to Sign In →
-                </button>
-              )}
-              {authErrorCode === "USER_NOT_FOUND" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("register");
-                    setAuthError("");
-                    setAuthErrorCode(undefined);
-                  }}
-                  className="px-2.5 py-1 bg-[#3155E7] text-white text-[11px] font-bold rounded hover:bg-[#233fbe] transition"
-                >
-                  Create an Account Now →
-                </button>
-              )}
-              {authErrorCode === "INVALID_PASSWORD" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode("reset");
-                    setAuthError("");
-                    setAuthErrorCode(undefined);
-                  }}
-                  className="px-2.5 py-1 bg-[#9b302d] text-white text-[11px] font-bold rounded hover:brightness-110 transition"
-                >
-                  Reset Password with this Email →
-                </button>
-              )}
-            </div>
-          )}
-        </section>
-      ) : (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl bg-[#e9f5ef] border border-[#c2e4d3] text-[#0f8872] text-xs font-semibold">
-            <div className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span>
-                One-Time Session Active for <strong>{currentUser.name}</strong> · Remembered across visits
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={handleOpenEditProfile}
-              aria-expanded={isEditingProfile}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#fffefa] text-[#2847cf] border border-[#c7d1f7] hover:bg-[#e4e8fb] font-bold transition"
-            >
-              <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{isEditingProfile ? "Close Profile Editor" : "Change Name / Email"}</span>
-            </button>
-          </div>
-
-          {isEditingProfile && (
-            <form
-              onSubmit={handleSaveProfile}
-              aria-label="Update student name and email"
-              className="p-5 bg-[#fffefa] border border-[#c7d1f7] rounded-xl shadow-sm space-y-4"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-bold text-[#1b211d]">
-                  Update Name &amp; Email Address
-                </h2>
-                <span className="text-[11px] text-[#59685d]">
-                  Email stays private and is never shown in your welcome greeting.
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#e9f5ef] text-[#0f8872] border border-[#c2e4d3]">
+                  Active Profile
                 </span>
               </div>
+              <p className="text-xs text-[#4e5b52] mt-0.5 max-w-xl">
+                Your learning progress, game streaks, study planner sessions, and saved notes are personalized for you. You can change your name anytime.
+              </p>
+            </div>
+          </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="edit-profile-name">
-                    Display Name
-                  </label>
-                  <input
-                    id="edit-profile-name"
-                    type="text"
-                    required
-                    minLength={2}
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Your full name"
-                    className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="edit-profile-email">
-                    Account Email
-                  </label>
-                  <input
-                    id="edit-profile-email"
-                    type="email"
-                    required
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm"
-                  />
+          <button
+            type="button"
+            onClick={() => {
+              if (isEditingName) {
+                setIsEditingName(false);
+              } else {
+                handleOpenEditName();
+              }
+            }}
+            aria-expanded={isEditingName}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#fffefa] text-[#2847cf] border border-[#c7d1f7] hover:bg-[#e4e8fb] font-bold text-xs transition shadow-2xs shrink-0 self-start sm:self-center"
+          >
+            <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>{isEditingName ? "Cancel Editing" : "✏️ Edit Name"}</span>
+          </button>
+        </div>
+
+        {isEditingName && (
+          <form
+            onSubmit={handleSaveStudentName}
+            aria-label="Change student name"
+            className="pt-3.5 border-t border-[#eeece5] space-y-3"
+          >
+            <div className="max-w-md">
+              <label
+                htmlFor="dashboard-edit-name"
+                className="block text-xs font-bold text-[#222824] mb-1.5"
+              >
+                Change Your Name
+              </label>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  id="dashboard-edit-name"
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={60}
+                  value={studentNameInput}
+                  onChange={(e) => setStudentNameInput(e.target.value)}
+                  placeholder="e.g., Jagruti"
+                  className="flex-1 px-3.5 py-2 rounded-xl border border-[#d8d7d0] bg-[#f8f7f2] text-sm font-semibold text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={nameSaving}
+                    className="px-4 py-2 bg-[#3155E7] text-white text-xs font-bold rounded-xl hover:bg-[#233fbe] transition disabled:opacity-50 shadow-2xs flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>{nameSaving ? "Saving…" : "Save Name"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingName(false)}
+                    className="px-3 py-2 bg-transparent border border-[#d8d7d0] text-[#556358] text-xs font-bold rounded-xl hover:bg-[#f1efe9] transition whitespace-nowrap"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
-
-              {editError && (
-                <p role="alert" className="text-xs font-semibold text-[#9b302d] bg-[#f6e2df] border border-[#e3b2ad] rounded-lg px-3 py-2">
-                  {editError}
+              {nameError && (
+                <p className="text-xs text-[#9b302d] font-semibold mt-1.5" role="alert">
+                  {nameError}
                 </p>
               )}
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="submit"
-                  disabled={editSaving}
-                  className="px-4 py-2 rounded-lg bg-[#3155E7] text-white text-xs font-bold hover:bg-[#233fbe] disabled:opacity-50 min-h-[40px]"
-                >
-                  {editSaving ? "Saving…" : "Save Changes"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditingProfile(false);
-                    setEditError("");
-                  }}
-                  className="px-4 py-2 rounded-lg bg-[#f8f7f2] border border-[#d8d7d0] text-[#3d4841] text-xs font-bold hover:bg-[#eeece5] min-h-[40px]"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      )}
+            </div>
+          </form>
+        )}
+      </section>
 
       {/* Signal Strip */}
       <div className="p-3 bg-[#fffefa] border border-[#d8d7d0] rounded-md">

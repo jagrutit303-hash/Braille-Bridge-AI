@@ -167,6 +167,7 @@ const defaultStore = {
   }>,
   sessions: {} as Record<string, { userId: string; createdAt: string }>,
   scriptVaultBookmarks: {} as Record<string, string[]>,
+  studentName: "Jagruti",
 };
 
 function loadDiskDatabase(): typeof defaultStore {
@@ -186,6 +187,10 @@ function loadDiskDatabase(): typeof defaultStore {
           parsed.scriptVaultBookmarks && typeof parsed.scriptVaultBookmarks === "object"
             ? parsed.scriptVaultBookmarks
             : {},
+        studentName:
+          typeof parsed.studentName === "string" && parsed.studentName.trim().length > 0
+            ? parsed.studentName.trim()
+            : (parsed.users?.find((u: any) => u.name)?.name || "Jagruti"),
       };
     }
   } catch (err) {
@@ -1767,7 +1772,7 @@ app.post("/api/supabase/preferences", async (req, res) => {
 // 7. One-Time Student Authentication & Script Vault Persistence
 // ---------------------------------------------------------------------------
 
-async function withSupabaseTimeout<T>(fn: () => Promise<T>, timeoutMs = 800): Promise<T | null> {
+async function withSupabaseTimeout<T>(fn: () => Promise<T> | PromiseLike<T>, timeoutMs = 800): Promise<T | null> {
   if (!supabase) return null;
   try {
     let timer: NodeJS.Timeout;
@@ -2175,7 +2180,15 @@ app.post("/api/auth/logout", async (req, res) => {
 async function handleUpdateStudentProfile(req: express.Request, res: express.Response) {
   const user = await resolveUserFromRequestAsync(req);
   if (!user) {
-    return res.status(401).json({ error: "Please sign in first to update your profile." });
+    const rawName = req.body?.name !== undefined ? String(req.body.name).trim() : "";
+    if (rawName && rawName.length >= 2) {
+      inMemoryStore.studentName = rawName;
+      saveDiskDatabase();
+      return res.json({
+        user: { id: "student_profile", name: rawName, email: "", createdAt: new Date().toISOString() },
+      });
+    }
+    return res.status(401).json({ error: "Please set your student name to update profile." });
   }
 
   const nextName =
@@ -2221,6 +2234,30 @@ async function handleUpdateStudentProfile(req: express.Request, res: express.Res
 
 app.patch("/api/auth/profile", handleUpdateStudentProfile);
 app.post("/api/auth/profile", handleUpdateStudentProfile);
+
+app.get(["/api/student/name", "/api/auth/name"], (_req, res) => {
+  return res.json({ name: inMemoryStore.studentName || "Jagruti" });
+});
+
+app.post(["/api/student/name", "/api/auth/name"], (req, res) => {
+  const name = String(req.body?.name || "").trim();
+  if (name.length >= 2) {
+    inMemoryStore.studentName = name;
+    if (inMemoryStore.users && inMemoryStore.users.length > 0) {
+      inMemoryStore.users[0].name = name;
+    }
+    saveDiskDatabase();
+  }
+  return res.json({
+    success: true,
+    name: inMemoryStore.studentName || name || "Jagruti",
+    user: {
+      id: "student_profile",
+      name: inMemoryStore.studentName || name || "Jagruti",
+      email: "",
+    },
+  });
+});
 
 app.get("/api/vault/bookmarks", async (req, res) => {
   const user = await resolveUserFromRequestAsync(req);

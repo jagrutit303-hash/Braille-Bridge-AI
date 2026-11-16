@@ -150,28 +150,26 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={() => {
-              if (currentUser) {
-                onNavigate("dashboard");
-              } else if (onOpenAuth) {
-                onOpenAuth("login");
+              if (onOpenAuth) {
+                onOpenAuth();
               } else {
                 onNavigate("dashboard");
               }
             }}
-            className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded border transition-colors whitespace-nowrap ${
-              currentUser
-                ? "bg-[#e9f5ef] text-[#0f8872] border-[#c2e4d3] hover:brightness-95"
-                : "bg-[#fffefa] text-[#2847cf] border-[#c7d1f7] hover:bg-[#e4e8fb]"
-            }`}
+            className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded border bg-[#e9f5ef] text-[#0f8872] border-[#c2e4d3] hover:bg-[#d6f0e2] transition-colors whitespace-nowrap"
             aria-label={
-              currentUser
-                ? `Signed in as ${currentUser.name}. Open Student Dashboard`
-                : "Student Sign In or Register"
+              currentUser?.name
+                ? `Student profile: ${currentUser.name}. Click to edit name.`
+                : "Set your student name"
             }
-            title={currentUser ? `Signed in: ${currentUser.name}` : "Sign in or create your student account"}
+            title={
+              currentUser?.name
+                ? `Student: ${currentUser.name} (Click to edit name)`
+                : "Click to set student name"
+            }
           >
-            <span aria-hidden="true">{currentUser ? "👤" : "🔐"}</span>
-            <span>{currentUser ? currentUser.name.split(" ")[0] : "Sign In"}</span>
+            <span aria-hidden="true">👤</span>
+            <span>{currentUser?.name ? currentUser.name.split(" ")[0] : "Set Name"}</span>
           </button>
 
           {/* Universal Voice First Action Button */}
@@ -206,22 +204,20 @@ export const Header: React.FC<HeaderProps> = ({
         ))}
         <button
           onClick={() => {
-            if (currentUser) {
-              onNavigate("dashboard");
-            } else if (onOpenAuth) {
-              onOpenAuth("login");
+            if (onOpenAuth) {
+              onOpenAuth();
             } else {
               onNavigate("dashboard");
             }
           }}
-          className={`md:hidden px-3 py-2 text-xs font-bold rounded border whitespace-nowrap shrink-0 ${
-            currentUser
-              ? "bg-[#e9f5ef] text-[#0f8872] border-[#c2e4d3]"
-              : "bg-[#fffefa] text-[#2847cf] border-[#c7d1f7]"
-          }`}
-          aria-label={currentUser ? `Signed in as ${currentUser.name}` : "Sign In to account"}
+          className="md:hidden px-3 py-2 text-xs font-bold rounded border bg-[#e9f5ef] text-[#0f8872] border-[#c2e4d3] whitespace-nowrap shrink-0"
+          aria-label={
+            currentUser?.name
+              ? `Student profile: ${currentUser.name}. Tap to edit name.`
+              : "Set student name"
+          }
         >
-          {currentUser ? `👤 ${currentUser.name.split(" ")[0]}` : "🔐 Sign In"}
+          👤 {currentUser?.name ? currentUser.name.split(" ")[0] : "Set Name"}
         </button>
       </div>
     </>
