@@ -103,9 +103,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorCode(undefined);
     setSuccessMessage("");
 
-    const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
-      const msg = "Please enter a valid email address.";
+    const cleanIdentifier = email.trim().toLowerCase();
+    if (cleanIdentifier.length < 2) {
+      const msg = "Please enter your email address or username.";
       setErrorMessage(msg);
       speakText(msg, { lang: activeLang });
       return;
@@ -135,7 +135,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setIsSubmitting(true);
     try {
       if (mode === "login") {
-        const result = await loginStudentAccount(cleanEmail, password);
+        const result = await loginStudentAccount(cleanIdentifier, password);
         if (result.error || !result.user) {
           setErrorMessage(result.error || "Sign in failed. Please check your credentials.");
           setErrorCode(result.code);
@@ -148,7 +148,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onSuccess?.(result.user);
         setTimeout(() => onClose(), 600);
       } else if (mode === "register") {
-        const result = await registerStudentAccount(name, cleanEmail, password);
+        const result = await registerStudentAccount(name, cleanIdentifier, password);
         if (result.error || !result.user) {
           setErrorMessage(result.error || "Could not create account.");
           setErrorCode(result.code);
@@ -163,7 +163,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onSuccess?.(result.user);
         setTimeout(() => onClose(), 600);
       } else if (mode === "reset") {
-        const result = await resetStudentPassword(cleanEmail, password);
+        const result = await resetStudentPassword(cleanIdentifier, password);
         if (result.error || !result.user) {
           setErrorMessage(result.error || "Could not reset password.");
           setErrorCode(result.code);
@@ -350,25 +350,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {/* Email field */}
+          {/* Email or Username field */}
           <div>
             <label
               htmlFor="modal-auth-email"
               className="block text-xs font-bold text-[#202522] mb-1 flex items-center gap-1.5"
             >
               <Mail className="w-3.5 h-3.5 text-[#3155E7]" aria-hidden="true" />
-              <span>Email Address</span>
+              <span>Email Address or Username</span>
             </label>
             <input
               ref={emailInputRef}
               id="modal-auth-email"
               name="email"
-              type="email"
-              autoComplete="email"
+              type="text"
+              autoComplete="username"
+              inputMode="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="student@college.edu"
+              placeholder="student@college.edu or username"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] placeholder:text-[#888e84] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
             />
           </div>

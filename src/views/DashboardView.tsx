@@ -209,7 +209,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setAuthError("");
     setAuthErrorCode(undefined);
 
-    const cleanEmail = authEmail.trim().toLowerCase();
+    const cleanIdentifier = authEmail.trim().toLowerCase();
+    if (cleanIdentifier.length < 2) {
+      const msg = "Please enter your email address or username.";
+      setAuthError(msg);
+      speakText(msg, { lang: activeLang });
+      return;
+    }
+
     if (authMode === "reset" && authPassword !== authConfirmPassword) {
       const msg = "Passwords do not match. Please re-enter identical passwords.";
       setAuthError(msg);
@@ -221,11 +228,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     try {
       let result;
       if (authMode === "register") {
-        result = await registerStudentAccount(authName, cleanEmail, authPassword);
+        result = await registerStudentAccount(authName, cleanIdentifier, authPassword);
       } else if (authMode === "login") {
-        result = await loginStudentAccount(cleanEmail, authPassword);
+        result = await loginStudentAccount(cleanIdentifier, authPassword);
       } else {
-        result = await resetStudentPassword(cleanEmail, authPassword);
+        result = await resetStudentPassword(cleanIdentifier, authPassword);
       }
 
       if (result.error || !result.user) {
@@ -548,15 +555,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-email">
-                  Email Address
+                  Email Address or Username
                 </label>
                 <input
                   id="auth-email"
-                  type="email"
+                  type="text"
+                  autoComplete="username"
+                  inputMode="email"
                   required
                   value={authEmail}
                   onChange={(e) => setAuthEmail(e.target.value)}
-                  placeholder="student@college.edu"
+                  placeholder="student@college.edu or username"
                   className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
                 />
               </div>

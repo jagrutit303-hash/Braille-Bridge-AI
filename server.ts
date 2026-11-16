@@ -1817,6 +1817,30 @@ function formatNameFromEmail(email: string): string {
     .join(" ");
 }
 
+function findUserByIdentifier(raw: string) {
+  const clean = raw.trim().toLowerCase();
+  if (!clean) return null;
+  const normalized = clean.includes("@") ? clean : `${clean}@student.edu`;
+
+  // 1. Exact email match
+  let user = inMemoryStore.users.find((u) => u.email.toLowerCase() === clean);
+  if (user) return user;
+
+  // 2. Normalized email match (e.g. jagrutit303 -> jagrutit303@student.edu)
+  user = inMemoryStore.users.find((u) => u.email.toLowerCase() === normalized);
+  if (user) return user;
+
+  // 3. Email username prefix match (e.g. jagrutit303 matches jagrutit303@gmail.com)
+  user = inMemoryStore.users.find((u) => u.email.toLowerCase().startsWith(clean + "@"));
+  if (user) return user;
+
+  // 4. Display name match (e.g. ishan matches user name 'ishan')
+  user = inMemoryStore.users.find((u) => u.name.toLowerCase() === clean);
+  if (user) return user;
+
+  return null;
+}
+
 async function resolveUserFromRequestAsync(req: express.Request) {
   const token = extractBearerToken(req);
   if (!token) return null;
@@ -1863,20 +1887,21 @@ async function resolveUserFromRequestAsync(req: express.Request) {
 
 app.post("/api/auth/register", async (req, res) => {
   const name = String(req.body?.name || "").trim();
-  const email = String(req.body?.email || "").trim().toLowerCase();
+  const rawIdentifier = String(req.body?.email || req.body?.username || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
 
   if (name.length < 2) {
     return res.status(400).json({ error: "Please enter your full name (at least 2 characters)." });
   }
-  if (!email.includes("@") || !email.includes(".")) {
-    return res.status(400).json({ error: "Please enter a valid email address." });
+  if (rawIdentifier.length < 2) {
+    return res.status(400).json({ error: "Please enter your email address or username." });
   }
+  const email = rawIdentifier.includes("@") ? rawIdentifier : `${rawIdentifier}@student.edu`;
   if (password.length < 6) {
     return res.status(400).json({ error: "Password must be at least 6 characters long." });
   }
 
-  let existing = inMemoryStore.users.find((u) => u.email === email);
+  let existing = findUserByIdentifier(rawIdentifier);
   if (!existing && supabase) {
     try {
       const supRes: any = await withSupabaseTimeout(() =>
@@ -1889,7 +1914,7 @@ app.post("/api/auth/register", async (req, res) => {
   }
   if (existing) {
     return res.status(409).json({
-      error: "An account with this email already exists. Please switch to Sign In.",
+      error: "An account with this email or username already exists. Please switch to Sign In.",
       code: "USER_EXISTS",
     });
   }
@@ -1937,18 +1962,19 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 app.post("/api/auth/login", async (req, res) => {
-  const email = String(req.body?.email || "").trim().toLowerCase();
+  const rawIdentifier = String(req.body?.email || req.body?.username || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required." });
+  if (!rawIdentifier || !password) {
+    return res.status(400).json({ error: "Email or username and password are required." });
   }
 
-  let user = inMemoryStore.users.find((u) => u.email === email);
+  let user = findUserByIdentifier(rawIdentifier);
   if (!user && supabase) {
     try {
+      const normEmail = rawIdentifier.includes("@") ? rawIdentifier : `${rawIdentifier}@student.edu`;
       const supRes: any = await withSupabaseTimeout(() =>
-        supabase!.from("student_accounts").select("*").eq("email", email).maybeSingle()
+        supabase!.from("student_accounts").select("*").or(`email.eq.${rawIdentifier},email.eq.${normEmail}`).maybeSingle()
       );
       if (supRes?.data) {
         const acc = supRes.data;
@@ -1976,8 +2002,9 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
+    const email = rawIdentifier.includes("@") ? rawIdentifier : `${rawIdentifier}@student.edu`;
     const autoName =
-      String(req.body?.name || "").trim() || formatNameFromEmail(email);
+      String(req.body?.name || "").trim() || formatNameFromEmail(rawIdentifier);
     const { hash, salt } = hashPasswordWithSalt(password);
     user = {
       id: `user_${crypto.randomUUID()}`,
@@ -2031,21 +2058,22 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 app.post("/api/auth/reset-password", async (req, res) => {
-  const email = String(req.body?.email || "").trim().toLowerCase();
+  const rawIdentifier = String(req.body?.email || req.body?.username || "").trim().toLowerCase();
   const newPassword = String(req.body?.newPassword || req.body?.password || "");
 
-  if (!email || !newPassword) {
-    return res.status(400).json({ error: "Email and new password are required." });
+  if (!rawIdentifier || !newPassword) {
+    return res.status(400).json({ error: "Email or username and new password are required." });
   }
   if (newPassword.length < 6) {
     return res.status(400).json({ error: "New password must be at least 6 characters long." });
   }
 
-  let user = inMemoryStore.users.find((u) => u.email === email);
+  let user = findUserByIdentifier(rawIdentifier);
   if (!user && supabase) {
     try {
+      const normEmail = rawIdentifier.includes("@") ? rawIdentifier : `${rawIdentifier}@student.edu`;
       const supRes: any = await withSupabaseTimeout(() =>
-        supabase!.from("student_accounts").select("*").eq("email", email).maybeSingle()
+        supabase!.from("student_accounts").select("*").or(`email.eq.${rawIdentifier},email.eq.${normEmail}`).maybeSingle()
       );
       if (supRes?.data) {
         const acc = supRes.data;
@@ -2068,7 +2096,8 @@ app.post("/api/auth/reset-password", async (req, res) => {
 
   if (!user) {
     // If not found, auto-create with the new password
-    const autoName = formatNameFromEmail(email);
+    const email = rawIdentifier.includes("@") ? rawIdentifier : `${rawIdentifier}@student.edu`;
+    const autoName = formatNameFromEmail(rawIdentifier);
     user = {
       id: `user_${crypto.randomUUID()}`,
       name: autoName,
@@ -2157,8 +2186,8 @@ async function handleUpdateStudentProfile(req: express.Request, res: express.Res
   if (nextName.length < 2) {
     return res.status(400).json({ error: "Name must be at least 2 characters long." });
   }
-  if (!nextEmail.includes("@") || !nextEmail.includes(".")) {
-    return res.status(400).json({ error: "Please enter a valid email address." });
+  if (nextEmail.length < 2) {
+    return res.status(400).json({ error: "Please enter a valid email address or username." });
   }
 
   const conflict = inMemoryStore.users.find(
