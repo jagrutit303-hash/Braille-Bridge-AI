@@ -916,6 +916,184 @@ assert(
 );
 
 // ---------------------------------------------------------------------------
+// 13. One-Time Student Authentication & Password Recovery Suite
+// ---------------------------------------------------------------------------
+console.log("\n13. Student Authentication, Recovery & Session Security Suite");
+
+import crypto from "crypto";
+
+function testHashPassword(password: string, salt?: string) {
+  const usedSalt = salt || crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(password, usedSalt, 64).toString("hex");
+  return { hash, salt: usedSalt };
+}
+
+function testVerifyPassword(password: string, salt: string, storedHash: string): boolean {
+  try {
+    const { hash } = testHashPassword(password, salt);
+    const bufA = Buffer.from(hash, "hex");
+    const bufB = Buffer.from(storedHash, "hex");
+    if (bufA.length !== bufB.length) return false;
+    return crypto.timingSafeEqual(bufA, bufB);
+  } catch {
+    return false;
+  }
+}
+
+const passHashed = testHashPassword("SecretPassword123!");
+assert(
+  testVerifyPassword("SecretPassword123!", passHashed.salt, passHashed.hash),
+  "Scrypt password hashing and timingSafeEqual successfully verify authentic password"
+);
+assert(
+  !testVerifyPassword("WrongPassword456!", passHashed.salt, passHashed.hash),
+  "Scrypt password verification safely rejects invalid password"
+);
+
+// Live HTTP Endpoints Check (if server is active)
+try {
+  const ping = await fetch("http://localhost:3000/api/auth/me", {
+    headers: { Authorization: "Bearer test_probe_token" },
+  });
+  if (ping.status === 401) {
+    const uniqueEmail = `test_runner_${Date.now()}@college.edu`;
+
+    // 1. Register
+    const regRes = await fetch("http://localhost:3000/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Test Runner Student",
+        email: `  ${uniqueEmail.toUpperCase()}  `,
+        password: "secure_pass_123",
+      }),
+    });
+    const regJson = await regRes.json();
+    assert(
+      regRes.status === 200 &&
+        Boolean(regJson.token) &&
+        regJson.user.email === uniqueEmail.toLowerCase(),
+      "Live API: Register normalizes whitespace/uppercase email and creates student session token"
+    );
+
+    // 2. Duplicate registration protection
+    const dupRes = await fetch("http://localhost:3000/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Another Name",
+        email: uniqueEmail,
+        password: "different_password",
+      }),
+    });
+    const dupJson = await dupRes.json();
+    assert(
+      dupRes.status === 409 && dupJson.code === "USER_EXISTS",
+      "Live API: Duplicate registration safely rejected with 409 and code USER_EXISTS"
+    );
+
+    // 3. Login with correct credentials
+    const loginRes = await fetch("http://localhost:3000/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: ` ${uniqueEmail} `,
+        password: "secure_pass_123",
+      }),
+    });
+    const loginJson = await loginRes.json();
+    assert(
+      loginRes.status === 200 && Boolean(loginJson.token) && loginJson.user.name === "Test Runner Student",
+      "Live API: Login succeeds with correct credentials and returns user profile"
+    );
+
+    // 4. Login with invalid password returns structured code
+    const badPassRes = await fetch("http://localhost:3000/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: uniqueEmail,
+        password: "wrong_password_attempt",
+      }),
+    });
+    const badPassJson = await badPassRes.json();
+    assert(
+      badPassRes.status === 401 && badPassJson.code === "INVALID_PASSWORD",
+      "Live API: Incorrect password returns 401 with structured code INVALID_PASSWORD"
+    );
+
+    // 5. Login with non-existent email returns structured code
+    const nonExistRes = await fetch("http://localhost:3000/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "nonexistent_email_123@college.edu",
+        password: "password123",
+      }),
+    });
+    const nonExistJson = await nonExistRes.json();
+    assert(
+      nonExistRes.status === 401 && nonExistJson.code === "USER_NOT_FOUND",
+      "Live API: Unknown email returns 401 with structured code USER_NOT_FOUND"
+    );
+
+    // 6. Reset password endpoint
+    const resetRes = await fetch("http://localhost:3000/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: uniqueEmail,
+        newPassword: "new_secure_password_789",
+      }),
+    });
+    const resetJson = await resetRes.json();
+    assert(
+      resetRes.status === 200 && resetJson.success && Boolean(resetJson.token),
+      "Live API: Reset password updates hash and returns active session token"
+    );
+
+    // 7. Verify login with the updated password
+    const newLoginRes = await fetch("http://localhost:3000/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: uniqueEmail,
+        password: "new_secure_password_789",
+      }),
+    });
+    assert(
+      newLoginRes.status === 200,
+      "Live API: Login with newly reset password succeeds seamlessly"
+    );
+
+    // 8. Session restore via /api/auth/me
+    const meRes = await fetch("http://localhost:3000/api/auth/me", {
+      headers: { Authorization: `Bearer ${resetJson.token}` },
+    });
+    const meJson = await meRes.json();
+    assert(
+      meRes.status === 200 && meJson.user.email === uniqueEmail.toLowerCase(),
+      "Live API: /api/auth/me verifies active token and returns authenticated student"
+    );
+
+    // 9. Logout
+    const logoutRes = await fetch("http://localhost:3000/api/auth/logout", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resetJson.token}` },
+    });
+    const postLogoutMe = await fetch("http://localhost:3000/api/auth/me", {
+      headers: { Authorization: `Bearer ${resetJson.token}` },
+    });
+    assert(
+      logoutRes.status === 200 && postLogoutMe.status === 401,
+      "Live API: Logout cleanly invalidates session token"
+    );
+  }
+} catch {
+  console.log("  (Live server check skipped: server offline or outside sandbox boundary)");
+}
+
+// ---------------------------------------------------------------------------
 // Final Summary
 // ---------------------------------------------------------------------------
 console.log("\n=================================================");

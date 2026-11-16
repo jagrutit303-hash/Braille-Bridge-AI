@@ -53,16 +53,19 @@ export async function registerStudentAccount(
   name: string,
   email: string,
   password: string
-): Promise<{ user?: AuthUser; error?: string }> {
+): Promise<{ user?: AuthUser; error?: string; code?: string }> {
   try {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), email: email.trim(), password }),
+      body: JSON.stringify({ name: name.trim(), email: email.trim().toLowerCase(), password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { error: data.error || "Could not create account. Please check your details." };
+      return {
+        error: data.error || "Could not create account. Please check your details.",
+        code: data.code,
+      };
     }
     if (data.token && data.user) {
       persistSession(data.token, data.user);
@@ -77,22 +80,52 @@ export async function registerStudentAccount(
 export async function loginStudentAccount(
   email: string,
   password: string
-): Promise<{ user?: AuthUser; error?: string }> {
+): Promise<{ user?: AuthUser; error?: string; code?: string }> {
   try {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email.trim(), password }),
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { error: data.error || "Invalid email or password." };
+      return {
+        error: data.error || "Invalid email or password.",
+        code: data.code,
+      };
     }
     if (data.token && data.user) {
       persistSession(data.token, data.user);
       return { user: data.user };
     }
     return { error: "Unexpected response while signing in." };
+  } catch {
+    return { error: "Unable to reach the sign-in service right now. Please try again." };
+  }
+}
+
+export async function resetStudentPassword(
+  email: string,
+  newPassword: string
+): Promise<{ user?: AuthUser; error?: string; code?: string }> {
+  try {
+    const res = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), newPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        error: data.error || "Could not reset password. Please try again.",
+        code: data.code,
+      };
+    }
+    if (data.token && data.user) {
+      persistSession(data.token, data.user);
+      return { user: data.user };
+    }
+    return { error: "Unexpected response while resetting password." };
   } catch {
     return { error: "Unable to reach the sign-in service right now. Please try again." };
   }

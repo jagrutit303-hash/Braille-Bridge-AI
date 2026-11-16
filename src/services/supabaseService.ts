@@ -662,6 +662,7 @@ export async function fetchUserPreferencesFromCloud(): Promise<CloudUserPreferen
     if (data) {
       return {
         isHighContrast: Boolean(data.is_high_contrast),
+        colorVisionMode: (data.color_vision_mode as ColorVisionMode) || "standard",
         fontScale: Number(data.font_scale) || 1.0,
         speechSpeed: Number(data.speech_speed) || 1.0,
         speechPitch: Number(data.speech_pitch) || 1.0,
@@ -694,6 +695,7 @@ export async function saveUserPreferencesToCloud(prefs: CloudUserPreferences): P
     const { error } = await client.from("user_preferences").upsert({
       user_id: "guest_user",
       is_high_contrast: prefs.isHighContrast,
+      color_vision_mode: prefs.colorVisionMode || "standard",
       font_scale: prefs.fontScale,
       speech_speed: prefs.speechSpeed,
       speech_pitch: prefs.speechPitch || 1.0,

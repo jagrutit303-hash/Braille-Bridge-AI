@@ -17,6 +17,9 @@ import {
   UserCheck,
   ShieldCheck,
   Pencil,
+  Eye,
+  EyeOff,
+  KeyRound,
 } from "lucide-react";
 import { NavPage } from "../components/Header";
 import { ScriptVaultPanel } from "../components/ScriptVaultPanel";
@@ -25,6 +28,7 @@ import {
   loginStudentAccount,
   logoutStudentAccount,
   registerStudentAccount,
+  resetStudentPassword,
   updateStudentProfile,
 } from "../services/authService";
 import { ScriptVaultKey } from "../services/brailleService";
@@ -99,12 +103,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   );
 
   // One-Time Student Login / Sign Up form state
-  const [authMode, setAuthMode] = useState<"login" | "register">("register");
+  const [authMode, setAuthMode] = useState<"login" | "register" | "reset">("login");
   const [authName, setAuthName] = useState("");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [authConfirmPassword, setAuthConfirmPassword] = useState("");
+  const [authShowPassword, setAuthShowPassword] = useState(false);
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [authErrorCode, setAuthErrorCode] = useState<string | undefined>(undefined);
 
   // Edit profile (name & email) state for signed-in users
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -200,25 +207,41 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError("");
+    setAuthErrorCode(undefined);
+
+    const cleanEmail = authEmail.trim().toLowerCase();
+    if (authMode === "reset" && authPassword !== authConfirmPassword) {
+      const msg = "Passwords do not match. Please re-enter identical passwords.";
+      setAuthError(msg);
+      speakText(msg, { lang: activeLang });
+      return;
+    }
+
     setAuthSubmitting(true);
     try {
-      const result =
-        authMode === "register"
-          ? await registerStudentAccount(authName, authEmail, authPassword)
-          : await loginStudentAccount(authEmail, authPassword);
+      let result;
+      if (authMode === "register") {
+        result = await registerStudentAccount(authName, cleanEmail, authPassword);
+      } else if (authMode === "login") {
+        result = await loginStudentAccount(cleanEmail, authPassword);
+      } else {
+        result = await resetStudentPassword(cleanEmail, authPassword);
+      }
 
       if (result.error || !result.user) {
         setAuthError(result.error || "Sign in failed. Please check your credentials.");
-        speakText(result.error || "Sign in failed. Please check your credentials.", { lang: "en-US" });
+        setAuthErrorCode(result.code);
+        speakText(result.error || "Sign in failed. Please check your credentials.", { lang: activeLang });
         return;
       }
 
       onUserChange?.(result.user);
       setAuthPassword("");
+      setAuthConfirmPassword("");
       setSignalState("success");
       setSignalMessage(`Signed in as ${result.user.name}. Your one-time session is saved on this device.`);
       speakText(`Welcome ${result.user.name}. Your one-time student login is active on this dashboard.`, {
-        lang: "en-US",
+        lang: activeLang,
       });
     } finally {
       setAuthSubmitting(false);
@@ -439,7 +462,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-bold text-[#1b211d]">
-                  One-Time Student Login
+                  One-Time Student Access
                 </h2>
                 <p className="text-xs text-[#4e5b52] mt-0.5">
                   Sign in or create your student account once — your name and dashboard stay remembered automatically on this browser.
@@ -451,12 +474,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  setAuthMode("login");
+                  setAuthError("");
+                  setAuthErrorCode(undefined);
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
+                  authMode === "login"
+                    ? "bg-[#3155E7] text-white shadow-sm"
+                    : "text-[#4e5b52] hover:text-[#1b211d]"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setAuthMode("register");
                   setAuthError("");
+                  setAuthErrorCode(undefined);
                 }}
                 className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
                   authMode === "register"
-                    ? "bg-[#3155E7] text-white"
+                    ? "bg-[#3155E7] text-white shadow-sm"
                     : "text-[#4e5b52] hover:text-[#1b211d]"
                 }`}
               >
@@ -465,87 +504,206 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setAuthMode("login");
+                  setAuthMode("reset");
                   setAuthError("");
+                  setAuthErrorCode(undefined);
                 }}
                 className={`px-3 py-1.5 rounded-md text-xs font-bold transition ${
-                  authMode === "login"
-                    ? "bg-[#3155E7] text-white"
+                  authMode === "reset"
+                    ? "bg-[#3155E7] text-white shadow-sm"
                     : "text-[#4e5b52] hover:text-[#1b211d]"
                 }`}
               >
-                Sign In
+                Reset Password
               </button>
             </div>
           </div>
 
-          <form onSubmit={handleAuthSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-            {authMode === "register" && (
+          <form onSubmit={handleAuthSubmit} className="space-y-4">
+            <div
+              className={`grid gap-3 items-end ${
+                authMode === "login"
+                  ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                  : authMode === "register"
+                  ? "grid-cols-1 md:grid-cols-3"
+                  : "grid-cols-1 md:grid-cols-3"
+              }`}
+            >
+              {authMode === "register" && (
+                <div>
+                  <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-name">
+                    Your Full Name
+                  </label>
+                  <input
+                    id="auth-name"
+                    type="text"
+                    required
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                    placeholder="e.g., Ananya Sharma"
+                    className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
+                  />
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-name">
-                  Your Full Name
+                <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-email">
+                  Email Address
                 </label>
                 <input
-                  id="auth-name"
-                  type="text"
+                  id="auth-email"
+                  type="email"
                   required
-                  value={authName}
-                  onChange={(e) => setAuthName(e.target.value)}
-                  placeholder="e.g., Ananya Sharma"
-                  className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm"
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder="student@college.edu"
+                  className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
                 />
               </div>
-            )}
 
-            <div>
-              <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-email">
-                Email Address
-              </label>
-              <input
-                id="auth-email"
-                type="email"
-                required
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                placeholder="student@college.edu"
-                className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm"
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-[#222824]" htmlFor="auth-password">
+                    {authMode === "reset" ? "New Password" : "Password (min 6 chars)"}
+                  </label>
+                  {authMode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode("reset");
+                        setAuthError("");
+                        setAuthErrorCode(undefined);
+                      }}
+                      className="text-[11px] font-bold text-[#3155E7] hover:underline"
+                    >
+                      Forgot?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    id="auth-password"
+                    type={authShowPassword ? "text" : "password"}
+                    required
+                    minLength={6}
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2.5 pr-10 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAuthShowPassword((prev) => !prev)}
+                    aria-label={authShowPassword ? "Hide password" : "Show password"}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#556358] hover:text-[#1b211d]"
+                  >
+                    {authShowPassword ? (
+                      <EyeOff className="w-4 h-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="w-4 h-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {authMode === "reset" && (
+                <div>
+                  <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-confirm-password">
+                    Confirm New Password
+                  </label>
+                  <input
+                    id="auth-confirm-password"
+                    type={authShowPassword ? "text" : "password"}
+                    required
+                    minLength={6}
+                    value={authConfirmPassword}
+                    onChange={(e) => setAuthConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm text-[#202522] focus:outline-none focus:ring-2 focus:ring-[#3155E7]"
+                  />
+                </div>
+              )}
+
+              {authMode === "login" && (
+                <div className="flex items-center">
+                  <button
+                    type="submit"
+                    disabled={authSubmitting}
+                    className="w-full px-4 py-2.5 rounded-lg bg-[#3155E7] text-white text-xs font-bold hover:bg-[#233fbe] disabled:opacity-50 min-h-[42px] transition flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    <span>{authSubmitting ? "Please wait…" : "Sign In to Dashboard"}</span>
+                    <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-[#222824] mb-1" htmlFor="auth-password">
-                Password (min 6 characters)
-              </label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input
-                  id="auth-password"
-                  type="password"
-                  required
-                  minLength={6}
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  placeholder="••••••"
-                  className="w-full min-w-0 px-3 py-2.5 rounded-lg border border-[#d8d7d0] bg-[#f8f7f2] text-sm"
-                />
+            {authMode !== "login" && (
+              <div className="flex justify-end pt-1">
                 <button
                   type="submit"
                   disabled={authSubmitting}
-                  className="px-4 py-2.5 rounded-lg bg-[#3155E7] text-white text-xs font-bold hover:bg-[#233fbe] disabled:opacity-50 shrink-0 min-h-[42px]"
+                  className="px-6 py-2.5 rounded-lg bg-[#3155E7] text-white text-xs font-bold hover:bg-[#233fbe] disabled:opacity-50 min-h-[42px] transition flex items-center gap-2 shadow-sm"
                 >
-                  {authSubmitting
-                    ? "Please wait…"
-                    : authMode === "register"
-                    ? "Save & Enter"
-                    : "Sign In"}
+                  <span>
+                    {authSubmitting
+                      ? "Please wait…"
+                      : authMode === "register"
+                      ? "Create Account & Save"
+                      : "Reset Password & Sign In"}
+                  </span>
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
-            </div>
+            )}
           </form>
 
           {authError && (
-            <p role="alert" className="text-xs font-semibold text-[#9b302d] bg-[#f6e2df] border border-[#e3b2ad] rounded-lg px-3 py-2">
-              {authError}
-            </p>
+            <div
+              role="alert"
+              className="text-xs text-[#9b302d] bg-[#f6e2df] border border-[#e3b2ad] rounded-lg px-3 py-2.5 space-y-2"
+            >
+              <p className="font-semibold">{authError}</p>
+              {authErrorCode === "USER_EXISTS" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("login");
+                    setAuthError("");
+                    setAuthErrorCode(undefined);
+                  }}
+                  className="px-2.5 py-1 bg-[#3155E7] text-white text-[11px] font-bold rounded hover:bg-[#233fbe] transition"
+                >
+                  Switch to Sign In →
+                </button>
+              )}
+              {authErrorCode === "USER_NOT_FOUND" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("register");
+                    setAuthError("");
+                    setAuthErrorCode(undefined);
+                  }}
+                  className="px-2.5 py-1 bg-[#3155E7] text-white text-[11px] font-bold rounded hover:bg-[#233fbe] transition"
+                >
+                  Create an Account Now →
+                </button>
+              )}
+              {authErrorCode === "INVALID_PASSWORD" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode("reset");
+                    setAuthError("");
+                    setAuthErrorCode(undefined);
+                  }}
+                  className="px-2.5 py-1 bg-[#9b302d] text-white text-[11px] font-bold rounded hover:brightness-110 transition"
+                >
+                  Reset Password with this Email →
+                </button>
+              )}
+            </div>
           )}
         </section>
       ) : (

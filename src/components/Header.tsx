@@ -21,6 +21,7 @@ interface HeaderProps {
   isHighContrast: boolean;
   onToggleContrast: () => void;
   currentUser?: AuthUser | null;
+  onOpenAuth?: (mode?: "login" | "register") => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   isHighContrast,
   onToggleContrast,
   currentUser,
+  onOpenAuth,
 }) => {
   const [currentLang, setCurrentLang] = useState<string>("en-US");
 
@@ -147,7 +149,15 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           <button
-            onClick={() => onNavigate("dashboard")}
+            onClick={() => {
+              if (currentUser) {
+                onNavigate("dashboard");
+              } else if (onOpenAuth) {
+                onOpenAuth("login");
+              } else {
+                onNavigate("dashboard");
+              }
+            }}
             className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded border transition-colors whitespace-nowrap ${
               currentUser
                 ? "bg-[#e9f5ef] text-[#0f8872] border-[#c2e4d3] hover:brightness-95"
@@ -156,9 +166,9 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label={
               currentUser
                 ? `Signed in as ${currentUser.name}. Open Student Dashboard`
-                : "One-time Student Sign In on Dashboard"
+                : "Student Sign In or Register"
             }
-            title={currentUser ? `Signed in: ${currentUser.name}` : "One-time login for your Dashboard"}
+            title={currentUser ? `Signed in: ${currentUser.name}` : "Sign in or create your student account"}
           >
             <span aria-hidden="true">{currentUser ? "👤" : "🔐"}</span>
             <span>{currentUser ? currentUser.name.split(" ")[0] : "Sign In"}</span>
@@ -195,12 +205,21 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         ))}
         <button
-          onClick={() => onNavigate("dashboard")}
+          onClick={() => {
+            if (currentUser) {
+              onNavigate("dashboard");
+            } else if (onOpenAuth) {
+              onOpenAuth("login");
+            } else {
+              onNavigate("dashboard");
+            }
+          }}
           className={`md:hidden px-3 py-2 text-xs font-bold rounded border whitespace-nowrap shrink-0 ${
             currentUser
               ? "bg-[#e9f5ef] text-[#0f8872] border-[#c2e4d3]"
               : "bg-[#fffefa] text-[#2847cf] border-[#c7d1f7]"
           }`}
+          aria-label={currentUser ? `Signed in as ${currentUser.name}` : "Sign In to account"}
         >
           {currentUser ? `👤 ${currentUser.name.split(" ")[0]}` : "🔐 Sign In"}
         </button>

@@ -1746,6 +1746,7 @@ app.post("/api/supabase/preferences", async (req, res) => {
       const { error } = await supabase.from("user_preferences").upsert({
         user_id: "guest_user",
         is_high_contrast: prefs.isHighContrast,
+        color_vision_mode: cvdMode,
         font_scale: prefs.fontScale,
         speech_speed: prefs.speechSpeed,
         speech_pitch: prefs.speechPitch || 1.0,
@@ -1792,16 +1793,53 @@ function extractBearerToken(req: express.Request): string {
   return "";
 }
 
-function resolveUserFromRequest(req: express.Request) {
+async function resolveUserFromRequestAsync(req: express.Request) {
   const token = extractBearerToken(req);
   if (!token) return null;
+
   const session = inMemoryStore.sessions[token];
-  if (!session) return null;
-  const user = inMemoryStore.users.find((u) => u.id === session.userId);
-  return user || null;
+  if (session) {
+    const localUser = inMemoryStore.users.find((u) => u.id === session.userId);
+    if (localUser) return localUser;
+  }
+
+  if (supabase) {
+    try {
+      const { data: sess } = await supabase
+        .from("student_sessions")
+        .select("user_id")
+        .eq("token", token)
+        .maybeSingle();
+      if (sess?.user_id) {
+        const { data: acc } = await supabase
+          .from("student_accounts")
+          .select("*")
+          .eq("id", sess.user_id)
+          .maybeSingle();
+        if (acc) {
+          const hydrated = {
+            id: acc.id,
+            name: acc.name,
+            email: acc.email,
+            passwordHash: acc.password_hash,
+            salt: acc.salt,
+            createdAt: acc.created_at,
+          };
+          if (!inMemoryStore.users.some((u) => u.id === hydrated.id)) {
+            inMemoryStore.users.push(hydrated);
+          }
+          inMemoryStore.sessions[token] = { userId: hydrated.id, createdAt: acc.created_at };
+          return hydrated;
+        }
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return null;
 }
 
-app.post("/api/auth/register", (req, res) => {
+app.post("/api/auth/register", async (req, res) => {
   const name = String(req.body?.name || "").trim();
   const email = String(req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
@@ -1816,10 +1854,23 @@ app.post("/api/auth/register", (req, res) => {
     return res.status(400).json({ error: "Password must be at least 6 characters long." });
   }
 
-  const existing = inMemoryStore.users.find((u) => u.email === email);
+  let existing = inMemoryStore.users.find((u) => u.email === email);
+  if (!existing && supabase) {
+    try {
+      const { data } = await supabase
+        .from("student_accounts")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+      if (data) existing = data as any;
+    } catch {
+      // ignore if table not initialized yet
+    }
+  }
   if (existing) {
     return res.status(409).json({
       error: "An account with this email already exists. Please switch to Sign In.",
+      code: "USER_EXISTS",
     });
   }
 
@@ -1841,13 +1892,33 @@ app.post("/api/auth/register", (req, res) => {
   };
   saveDiskDatabase();
 
+  if (supabase) {
+    try {
+      await supabase.from("student_accounts").upsert({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        password_hash: user.passwordHash,
+        salt: user.salt,
+        created_at: user.createdAt,
+      });
+      await supabase.from("student_sessions").upsert({
+        token,
+        user_id: user.id,
+        created_at: user.createdAt,
+      });
+    } catch {
+      // ignore if Supabase tables haven't been created yet
+    }
+  }
+
   return res.json({
     token,
     user: { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt },
   });
 });
 
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   const email = String(req.body?.email || "").trim().toLowerCase();
   const password = String(req.body?.password || "");
 
@@ -1855,17 +1926,63 @@ app.post("/api/auth/login", (req, res) => {
     return res.status(400).json({ error: "Email and password are required." });
   }
 
-  const user = inMemoryStore.users.find((u) => u.email === email);
-  if (!user || !verifyPasswordHash(password, user.salt, user.passwordHash)) {
-    return res.status(401).json({ error: "Invalid email or password. Please check your credentials." });
+  let user = inMemoryStore.users.find((u) => u.email === email);
+  if (!user && supabase) {
+    try {
+      const { data: acc } = await supabase
+        .from("student_accounts")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+      if (acc) {
+        user = {
+          id: acc.id,
+          name: acc.name,
+          email: acc.email,
+          passwordHash: acc.password_hash,
+          salt: acc.salt,
+          createdAt: acc.created_at,
+        };
+        inMemoryStore.users.push(user);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!user) {
+    return res.status(401).json({
+      error: "No account found with this email. Please check your spelling or switch to Create Account.",
+      code: "USER_NOT_FOUND",
+    });
+  }
+
+  if (!verifyPasswordHash(password, user.salt, user.passwordHash)) {
+    return res.status(401).json({
+      error: "Incorrect password. Please verify your password, or use Reset Password.",
+      code: "INVALID_PASSWORD",
+    });
   }
 
   const token = crypto.randomBytes(32).toString("hex");
+  const nowIso = new Date().toISOString();
   inMemoryStore.sessions[token] = {
     userId: user.id,
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso,
   };
   saveDiskDatabase();
+
+  if (supabase) {
+    try {
+      await supabase.from("student_sessions").upsert({
+        token,
+        user_id: user.id,
+        created_at: nowIso,
+      });
+    } catch {
+      // ignore
+    }
+  }
 
   return res.json({
     token,
@@ -1873,8 +1990,90 @@ app.post("/api/auth/login", (req, res) => {
   });
 });
 
-app.get("/api/auth/me", (req, res) => {
-  const user = resolveUserFromRequest(req);
+app.post("/api/auth/reset-password", async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const newPassword = String(req.body?.newPassword || req.body?.password || "");
+
+  if (!email || !newPassword) {
+    return res.status(400).json({ error: "Email and new password are required." });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: "New password must be at least 6 characters long." });
+  }
+
+  let user = inMemoryStore.users.find((u) => u.email === email);
+  if (!user && supabase) {
+    try {
+      const { data: acc } = await supabase
+        .from("student_accounts")
+        .select("*")
+        .eq("email", email)
+        .maybeSingle();
+      if (acc) {
+        user = {
+          id: acc.id,
+          name: acc.name,
+          email: acc.email,
+          passwordHash: acc.password_hash,
+          salt: acc.salt,
+          createdAt: acc.created_at,
+        };
+        inMemoryStore.users.push(user);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!user) {
+    return res.status(404).json({
+      error: "No account found with this email to reset. Please create an account first.",
+      code: "USER_NOT_FOUND",
+    });
+  }
+
+  const { hash, salt } = hashPasswordWithSalt(newPassword);
+  user.passwordHash = hash;
+  user.salt = salt;
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const nowIso = new Date().toISOString();
+  inMemoryStore.sessions[token] = {
+    userId: user.id,
+    createdAt: nowIso,
+  };
+  saveDiskDatabase();
+
+  if (supabase) {
+    try {
+      await supabase.from("student_accounts").upsert({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        password_hash: user.passwordHash,
+        salt: user.salt,
+        created_at: user.createdAt,
+      });
+      await supabase.from("student_sessions").upsert({
+        token,
+        user_id: user.id,
+        created_at: nowIso,
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  return res.json({
+    success: true,
+    message: "Password reset successfully. You are now signed in.",
+    token,
+    user: { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt },
+  });
+});
+
+app.get("/api/auth/me", async (req, res) => {
+  const user = await resolveUserFromRequestAsync(req);
   if (!user) {
     return res.status(401).json({ error: "Session not found or expired." });
   }
@@ -1883,17 +2082,24 @@ app.get("/api/auth/me", (req, res) => {
   });
 });
 
-app.post("/api/auth/logout", (req, res) => {
+app.post("/api/auth/logout", async (req, res) => {
   const token = extractBearerToken(req);
   if (token && inMemoryStore.sessions[token]) {
     delete inMemoryStore.sessions[token];
     saveDiskDatabase();
   }
+  if (token && supabase) {
+    try {
+      await supabase.from("student_sessions").delete().eq("token", token);
+    } catch {
+      // ignore
+    }
+  }
   return res.json({ success: true });
 });
 
-function handleUpdateStudentProfile(req: express.Request, res: express.Response) {
-  const user = resolveUserFromRequest(req);
+async function handleUpdateStudentProfile(req: express.Request, res: express.Response) {
+  const user = await resolveUserFromRequestAsync(req);
   if (!user) {
     return res.status(401).json({ error: "Please sign in first to update your profile." });
   }
@@ -1923,6 +2129,17 @@ function handleUpdateStudentProfile(req: express.Request, res: express.Response)
   user.email = nextEmail;
   saveDiskDatabase();
 
+  if (supabase) {
+    try {
+      await supabase
+        .from("student_accounts")
+        .update({ name: nextName, email: nextEmail })
+        .eq("id", user.id);
+    } catch {
+      // ignore
+    }
+  }
+
   return res.json({
     user: { id: user.id, name: user.name, email: user.email, createdAt: user.createdAt },
   });
@@ -1931,23 +2148,52 @@ function handleUpdateStudentProfile(req: express.Request, res: express.Response)
 app.patch("/api/auth/profile", handleUpdateStudentProfile);
 app.post("/api/auth/profile", handleUpdateStudentProfile);
 
-app.get("/api/vault/bookmarks", (req, res) => {
-  const user = resolveUserFromRequest(req);
+app.get("/api/vault/bookmarks", async (req, res) => {
+  const user = await resolveUserFromRequestAsync(req);
   const ownerKey = user ? user.id : "guest_user";
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("script_vault_bookmarks")
+        .select("items")
+        .eq("user_id", ownerKey)
+        .maybeSingle();
+      if (!error && Array.isArray(data?.items)) {
+        inMemoryStore.scriptVaultBookmarks[ownerKey] = data.items;
+        return res.json({ items: data.items, ownerKey, isCloud: true });
+      }
+    } catch {
+      // fallback
+    }
+  }
   const items = Array.isArray(inMemoryStore.scriptVaultBookmarks[ownerKey])
     ? inMemoryStore.scriptVaultBookmarks[ownerKey]
     : [];
   return res.json({ items, ownerKey });
 });
 
-app.post("/api/vault/bookmarks", (req, res) => {
-  const user = resolveUserFromRequest(req);
+app.post("/api/vault/bookmarks", async (req, res) => {
+  const user = await resolveUserFromRequestAsync(req);
   const ownerKey = user ? user.id : "guest_user";
   const items = Array.isArray(req.body?.items)
     ? req.body.items.map((x: any) => String(x)).slice(0, 500)
     : [];
-  inMemoryStore.scriptVaultBookmarks[ownerKey] = Array.from(new Set(items));
+  const uniqueItems = Array.from(new Set<string>(items));
+  inMemoryStore.scriptVaultBookmarks[ownerKey] = uniqueItems;
   saveDiskDatabase();
+
+  if (supabase) {
+    try {
+      await supabase.from("script_vault_bookmarks").upsert({
+        user_id: ownerKey,
+        items: uniqueItems,
+        updated_at: new Date().toISOString(),
+      });
+    } catch {
+      // ignore
+    }
+  }
+
   return res.json({ success: true, items: inMemoryStore.scriptVaultBookmarks[ownerKey] });
 });
 

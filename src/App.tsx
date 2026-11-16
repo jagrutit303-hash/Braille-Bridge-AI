@@ -31,6 +31,7 @@ import {
   getStoredUser,
   restoreOneTimeSession,
 } from "./services/authService";
+import { AuthModal, AuthModalMode } from "./components/AuthModal";
 
 const CVD_LABELS: Record<ColorVisionMode, string> = {
   standard: "Standard Palette",
@@ -42,6 +43,8 @@ const CVD_LABELS: Record<ColorVisionMode, string> = {
 export default function App() {
   const [currentPage, setCurrentPage] = useState<NavPage>("home");
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => getStoredUser());
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<AuthModalMode>("login");
   const [isHighContrast, setIsHighContrast] = useState<boolean>(() => {
     try {
       return localStorage.getItem("braillebridge_high_contrast") === "true";
@@ -84,8 +87,14 @@ export default function App() {
       const custom = e as CustomEvent<ColorVisionMode>;
       if (custom?.detail) setColorVisionMode(custom.detail);
     };
+    const onOpenAuth = (e: Event) => {
+      const custom = e as CustomEvent<{ mode?: AuthModalMode }>;
+      if (custom?.detail?.mode) setAuthModalMode(custom.detail.mode);
+      setIsAuthModalOpen(true);
+    };
     window.addEventListener(AUTH_CHANGE_EVENT, onAuthChange);
     window.addEventListener("braillebridge-cvd-change", onCvdChange);
+    window.addEventListener("braillebridge-open-auth", onOpenAuth);
 
     fetchUserPreferencesFromCloud()
       .then((prefs) => {
@@ -109,6 +118,7 @@ export default function App() {
     return () => {
       window.removeEventListener(AUTH_CHANGE_EVENT, onAuthChange);
       window.removeEventListener("braillebridge-cvd-change", onCvdChange);
+      window.removeEventListener("braillebridge-open-auth", onOpenAuth);
     };
   }, []);
 
@@ -238,6 +248,10 @@ export default function App() {
         isHighContrast={isHighContrast}
         onToggleContrast={() => setIsHighContrast(!isHighContrast)}
         currentUser={currentUser}
+        onOpenAuth={(mode = "login") => {
+          setAuthModalMode(mode);
+          setIsAuthModalOpen(true);
+        }}
       />
 
       {/* Persistent Low-Vision & Page Orientation Accessibility Bar */}
@@ -320,6 +334,14 @@ export default function App() {
         fontSizeScale={fontSizeScale}
         onFontSizeScaleChange={setFontSizeScale}
         onColorVisionModeChange={setColorVisionMode}
+      />
+
+      {/* Universal Student Sign In / Account Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        initialMode={authModalMode}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={(user) => setCurrentUser(user)}
       />
 
       {/* Standard Multi-Column Accessible Footer */}
