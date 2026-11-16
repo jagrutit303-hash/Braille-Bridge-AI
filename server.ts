@@ -1507,6 +1507,36 @@ app.post("/api/supabase/game-progress", async (req, res) => {
   return res.json({ success: true, isCloud: false });
 });
 
+app.post("/api/progress/reset", async (_req, res) => {
+  inMemoryStore.gameProgress = {
+    attempts: 0,
+    correct: 0,
+    streak: 0,
+    bestStreak: 0,
+    history: [],
+  };
+  saveDiskDatabase();
+
+  if (supabase) {
+    try {
+      await supabase.from("game_progress").upsert({
+        id: "default_progress",
+        user_id: "guest_user",
+        attempts: 0,
+        correct: 0,
+        streak: 0,
+        best_streak: 0,
+        history: [],
+        updated_at: new Date().toISOString(),
+      });
+    } catch {
+      // ignore
+    }
+  }
+
+  return res.json({ success: true, progress: inMemoryStore.gameProgress });
+});
+
 // 4. Study Notes
 app.get("/api/supabase/notes", async (_req, res) => {
   if (supabase) {

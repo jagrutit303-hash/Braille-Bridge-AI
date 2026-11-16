@@ -17,6 +17,7 @@ import {
   Pencil,
   Check,
   Sparkles,
+  RotateCcw,
 } from "lucide-react";
 import { NavPage } from "../components/Header";
 import { ScriptVaultPanel } from "../components/ScriptVaultPanel";
@@ -29,6 +30,7 @@ import { ScriptVaultKey } from "../services/brailleService";
 import {
   loadGameProgress,
   saveGameProgress,
+  resetGameProgress,
   GameScoreState,
 } from "../services/gamesService";
 import {
@@ -39,6 +41,7 @@ import {
 } from "../services/calendarService";
 import {
   fetchGameProgressFromCloud,
+  saveGameProgressToCloud,
   fetchStudyPlansFromCloud,
   fetchStudyNotesFromCloud,
   fetchCollegeNoticesFromCloud,
@@ -102,6 +105,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [nameSaving, setNameSaving] = useState<boolean>(false);
   const [nameError, setNameError] = useState<string>("");
 
+  // Reset Progress state
+  const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
+  const [isResetting, setIsResetting] = useState<boolean>(false);
+
   const loadAllProgress = useCallback(async () => {
     setIsRefreshing(true);
     try {
@@ -113,19 +120,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       ]);
 
       if (cloudGame) {
-        const local = loadGameProgress();
-        const merged: GameScoreState = {
-          attempts: Math.max(local.attempts, cloudGame.attempts),
-          correct: Math.max(local.correct, cloudGame.correct),
-          streak: Math.max(local.streak, cloudGame.streak),
-          bestStreak: Math.max(local.bestStreak, cloudGame.bestStreak),
-          history:
-            cloudGame.history && cloudGame.history.length > 0
-              ? (cloudGame.history as any)
-              : local.history,
+        const gameObj: GameScoreState = {
+          attempts: cloudGame.attempts,
+          correct: cloudGame.correct,
+          streak: cloudGame.streak,
+          bestStreak: cloudGame.bestStreak,
+          history: (cloudGame.history || []) as any,
         };
-        setGameState(merged);
-        saveGameProgress(merged);
+        setGameState(gameObj);
+        saveGameProgress(gameObj);
+      } else {
+        setGameState(loadGameProgress());
       }
 
       if (cloudPlans && cloudPlans.length > 0) {
@@ -216,6 +221,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       setNameError("Could not update student name. Please try again.");
     } finally {
       setNameSaving(false);
+    }
+  };
+
+  const handleResetProgress = async () => {
+    setIsResetting(true);
+    try {
+      const freshProgress = resetGameProgress();
+      setGameState(freshProgress);
+      await saveGameProgressToCloud(freshProgress);
+
+      setSignalState("idle");
+      setSignalMessage("Your learning streaks, accuracy, and practice attempts have been reset to zero.");
+      speakText("Your Braille game accuracy and streaks have been reset to zero.", { lang: activeLang });
+      setShowResetConfirm(false);
+    } catch {
+      setSignalState("error");
+      setSignalMessage("Failed to reset progress in cloud database. Reset locally.");
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -360,6 +384,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Edit Name</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm((prev) => !prev)}
+            className="px-3.5 py-2.5 bg-[#fffefa] border border-[#e3b2ad] text-[#9b302d] text-xs font-bold rounded-md hover:bg-[#f6e2df] hover:border-[#9b302d] transition-colors flex items-center gap-1.5 shadow-2xs"
+            title="Reset learning progress and streaks in local & Supabase cloud"
+            aria-label="Reset learning progress and streaks"
+          >
+            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Reset Progress</span>
+          </button>
+
           <button
             onClick={speakDashboardSummary}
             className="px-4 py-2.5 bg-[#3155E7] text-white text-xs font-bold rounded-md hover:bg-[#233fbe] transition-colors flex items-center gap-1.5 shadow-sm"
@@ -378,6 +414,49 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </button>
         </div>
       </motion.div>
+
+      {/* Reset Progress Confirmation Dialog */}
+      {showResetConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-confirm-title"
+          className="p-5 bg-[#fff7f6] border-2 border-[#e3b2ad] rounded-2xl shadow-sm space-y-3 animate-in fade-in duration-150"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#f6e2df] text-[#9b302d] flex items-center justify-center shrink-0">
+              <RotateCcw className="w-5 h-5" aria-hidden="true" />
+            </div>
+            <div className="flex-1">
+              <h3 id="reset-confirm-title" className="text-sm font-bold text-[#9b302d]">
+                Reset Learning Streaks &amp; Progress?
+              </h3>
+              <p className="text-xs text-[#556358] mt-0.5">
+                Are you sure you want to reset your Braille games accuracy, practice attempts, and streak records back to zero? This will update both your local dashboard and Supabase cloud database.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowResetConfirm(false)}
+              disabled={isResetting}
+              className="px-4 py-2 bg-white border border-[#d8d7d0] text-xs font-bold text-[#4b5750] rounded-xl hover:bg-[#f1efe9] transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleResetProgress}
+              disabled={isResetting}
+              className="px-4 py-2 bg-[#9b302d] text-white text-xs font-bold rounded-xl hover:bg-[#7e2523] transition flex items-center gap-1.5 shadow-sm"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isResetting ? "animate-spin" : ""}`} aria-hidden="true" />
+              <span>{isResetting ? "Resetting…" : "Yes, Reset Progress"}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Student Profile & Personalization Banner */}
       <section

@@ -1,8 +1,8 @@
 -- ==============================================================================
 -- BrailleBridge AI — Complete Supabase PostgreSQL Schema
--- Project Ref: gxpywyprztshyzpyidnx
+-- Project Ref: uwxzlifapkmmhtzfobsp
 -- Paste & Run this entire script in:
--- https://supabase.com/dashboard/project/gxpywyprztshyzpyidnx/sql/new
+-- https://supabase.com/dashboard/project/uwxzlifapkmmhtzfobsp/sql/new
 -- ==============================================================================
 
 create extension if not exists "uuid-ossp";
