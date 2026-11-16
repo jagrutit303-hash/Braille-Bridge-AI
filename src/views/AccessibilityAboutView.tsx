@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { isTTSSupported, isSpeechRecognitionSupported, speakText } from "../services/speechService";
+import { isTTSSupported, isSpeechRecognitionSupported, speakText, getActiveLanguage } from "../services/speechService";
 import { BRAILLE_TABLES } from "../services/brailleService";
 import {
   checkSupabaseStatus,
@@ -76,7 +76,7 @@ export const AccessibilityAboutView: React.FC<AccessibilityAboutViewProps> = ({
         }. Color vision mode is ${modeName}. Microphone input is ${
           micAvailable ? "supported" : "not detected in this browser"
         }. Use Spacebar anywhere outside forms to read any screen aloud, or Escape to silence.`,
-        { lang: "en-US" }
+        { lang: getActiveLanguage() }
       );
     };
     window.addEventListener("braillebridge-space-read", onSpaceRead);
@@ -208,7 +208,7 @@ export const AccessibilityAboutView: React.FC<AccessibilityAboutViewProps> = ({
                     type="button"
                     onClick={() => {
                       onColorVisionModeChange(opt.id);
-                      speakText(`${opt.label} selected. ${opt.desc}`, { lang: "en-US" });
+                      speakText(`${opt.label} selected. ${opt.desc}`, { lang: getActiveLanguage() });
                     }}
                     aria-pressed={selected}
                     className={`p-3 rounded-lg border text-left transition ${

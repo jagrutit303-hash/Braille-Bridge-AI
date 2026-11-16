@@ -1046,7 +1046,21 @@ app.get("/api/tts", async (req, res) => {
     }
 
     const shortLang = lang.split("-")[0].toLowerCase();
-    const localized = localizeAsciiTerms(text.trim(), shortLang);
+    let textToSpeak = text.trim();
+
+    // Auto-translate English text into the requested Indic language so fallback TTS never spells out ASCII characters
+    if (shortLang !== "en" && /[a-zA-Z]{2,}/.test(textToSpeak)) {
+      try {
+        const translated = await translateTextContent(textToSpeak, shortLang, "en");
+        if (translated && translated.trim()) {
+          textToSpeak = translated.trim();
+        }
+      } catch {
+        // preserve original text
+      }
+    }
+
+    const localized = localizeAsciiTerms(textToSpeak, shortLang);
     const cleanText = localized.slice(0, 200).trim();
     const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(
       shortLang
@@ -1835,10 +1849,14 @@ function verifyPasswordHash(password: string, salt: string, storedHash: string):
   }
 }
 
+const invalidatedTokens = new Set<string>();
+
 function extractBearerToken(req: express.Request): string {
   const auth = req.headers.authorization || "";
   if (auth.toLowerCase().startsWith("bearer ")) {
-    return auth.slice(7).trim();
+    const token = auth.slice(7).trim();
+    if (invalidatedTokens.has(token)) return "";
+    return token;
   }
   return "";
 }
@@ -2192,16 +2210,22 @@ app.get("/api/auth/me", async (req, res) => {
 });
 
 app.post("/api/auth/logout", async (req, res) => {
-  const token = extractBearerToken(req);
-  if (token && inMemoryStore.sessions[token]) {
-    delete inMemoryStore.sessions[token];
-    saveDiskDatabase();
-  }
-  if (token && supabase) {
-    try {
-      await supabase.from("student_sessions").delete().eq("token", token);
-    } catch {
-      // ignore
+  const auth = req.headers.authorization || "";
+  const rawToken = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
+  if (rawToken) {
+    invalidatedTokens.add(rawToken);
+    if (inMemoryStore.sessions[rawToken]) {
+      delete inMemoryStore.sessions[rawToken];
+      saveDiskDatabase();
+    }
+    if (supabase) {
+      try {
+        await withSupabaseTimeout(() =>
+          supabase!.from("student_sessions").delete().eq("token", rawToken)
+        );
+      } catch {
+        // ignore
+      }
     }
   }
   return res.json({ success: true });

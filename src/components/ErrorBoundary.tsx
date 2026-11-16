@@ -99,7 +99,7 @@ export class ErrorBoundary extends React.Component<
 
           <button
             type="button"
-            onClick={() => speakText(spokenSummary, { lang: "en-US" })}
+            onClick={() => speakText(spokenSummary)}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#e4e8fb] text-[#2847cf] font-semibold text-sm hover:bg-[#d5def9] min-h-[44px]"
           >
             <Volume2 className="w-4 h-4" aria-hidden="true" />

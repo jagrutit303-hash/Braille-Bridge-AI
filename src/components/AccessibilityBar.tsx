@@ -88,10 +88,10 @@ export const AccessibilityBar: React.FC<AccessibilityBarProps> = ({
           }
         }
       } catch {
-        // Fallback to English if translation unreachable
+        // Fallback if translation unreachable
       }
     }
-    speakText(englishGuide, { lang: "en-US" });
+    speakText(englishGuide, { lang: activeLang });
   };
 
   const handleTogglePunctuation = () => {
@@ -102,7 +102,7 @@ export const AccessibilityBar: React.FC<AccessibilityBarProps> = ({
       next === "verbose"
         ? "Exact punctuation mode enabled. All punctuation marks and symbols will be spoken."
         : "Smart punctuation mode enabled. Natural pauses and contextual symbols active.",
-      { lang: "en-US" }
+      { lang: getActiveLanguage() }
     );
   };
 
@@ -168,7 +168,7 @@ export const AccessibilityBar: React.FC<AccessibilityBarProps> = ({
                     tritanopia: "Blue-Yellow colorblind safe palette",
                     monochrome: "Monochrome high-contrast palette",
                   };
-                  speakText(`Color vision mode set to ${names[nextMode]}`, { lang: "en-US" });
+                  speakText(`Color vision mode set to ${names[nextMode]}`, { lang: getActiveLanguage() });
                 }}
                 aria-label="Select colorblind-safe display palette"
                 className="bg-transparent font-bold text-[#202522] focus:outline-none cursor-pointer"

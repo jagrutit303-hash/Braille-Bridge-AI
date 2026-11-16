@@ -6,7 +6,7 @@ import {
   ScriptVaultEntry,
   getScriptKnowledgeVault,
 } from "../services/brailleService";
-import { speakText } from "../services/speechService";
+import { speakText, getActiveLanguage } from "../services/speechService";
 import { fetchVaultBookmarks, saveVaultBookmarks } from "../services/authService";
 import { VoiceDictationButton } from "./VoiceDictationButton";
 
@@ -109,7 +109,7 @@ export function ScriptVaultPanel({
   const handleSpeakDots = (entry: ScriptVaultEntry) => {
     speakText(
       `${entry.symbol} (${entry.phonetic}). ${entry.dotsLabel}. ${entry.dotDescription}. ${entry.usageTip}`,
-      { lang: "en-US" }
+      { lang: getActiveLanguage() }
     );
   };
 
@@ -140,7 +140,7 @@ export function ScriptVaultPanel({
             onClick={() =>
               speakText(
                 `${meta.label} Knowledge Vault. ${meta.summary} Showing ${filteredEntries.length} symbols. ${scriptBookmarkCount} bookmarked for revision.`,
-                { lang: "en-US" }
+                { lang: getActiveLanguage() }
               )
             }
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-[#e4e8fb] text-[#2847cf] hover:bg-[#d5def9] border border-[#c7d1f7] min-h-[40px]"

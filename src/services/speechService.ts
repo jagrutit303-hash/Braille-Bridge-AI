@@ -321,6 +321,7 @@ export function splitSpeechSegmentsWithPauses(
 
 /**
  * Finds the most suitable voice for a given language code (e.g., 'kn-IN', 'hi-IN', 'ta-IN', 'bn-IN', 'en-US')
+ * strictly prioritizing authentic native regional accents (Karnataka Kannada, native Hindi, etc.).
  */
 export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice | null {
   const voices = getAvailableVoices();
@@ -329,45 +330,86 @@ export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice
   const target = langCode.toLowerCase().replace("_", "-");
   const primary = target.split("-")[0];
 
-  // 1. Exact match (e.g. kn-in, hi-in, ta-in, bn-in)
-  const exact = voices.find((v) => {
-    const vLang = v.lang.toLowerCase().replace("_", "-");
-    return vLang === target;
-  });
-  if (exact) return exact;
-
-  // 2. Starts with primary language (e.g. kn, hi, ta, bn)
-  const startsWith = voices.find((v) => {
-    const vLang = v.lang.toLowerCase().replace("_", "-");
-    return vLang.startsWith(primary + "-") || vLang === primary;
-  });
-  if (startsWith) return startsWith;
-
-  // 3. Check for language name in voice label (e.g. "Kannada", "Hindi", "Tamil", "Bengali")
-  const langNameMap: Record<string, string> = {
-    hi: "hindi",
-    kn: "kannada",
-    ta: "tamil",
-    bn: "bengali",
-    en: "english",
+  // Specific keywords for authentic native regional accents
+  const INDIC_KEYWORDS: Record<string, string[]> = {
+    kn: ["gagan", "kannada", "ಕನ್ನಡ", "kavya", "sapna"],
+    hi: ["swara", "madhur", "sapna", "hindi", "हिन्दी", "kalpana", "hemant"],
+    ta: ["pallavi", "valluvar", "tamil", "தமிழ்"],
+    bn: ["tapan", "bashkar", "bengali", "বাংলা"],
+    en: ["neerja", "prabhat", "aria", "guy", "jenny", "natural", "online"],
   };
-  const searchName = langNameMap[primary];
-  if (searchName) {
-    const byName = voices.find((v) => v.name.toLowerCase().includes(searchName));
-    if (byName) return byName;
+
+  const keywords = INDIC_KEYWORDS[primary] || [primary];
+
+  let bestVoice: SpeechSynthesisVoice | null = null;
+  let bestScore = -1;
+
+  for (const voice of voices) {
+    const vLang = (voice.lang || "").toLowerCase().replace("_", "-");
+    const vName = (voice.name || "").toLowerCase();
+    let score = 0;
+
+    // Exact regional language match (e.g. kn-IN, hi-IN)
+    if (vLang === target) {
+      score += 100;
+    } else if (vLang.startsWith(primary + "-")) {
+      score += 80;
+    } else if (vLang === primary) {
+      score += 60;
+    }
+
+    // Persona / native script keyword match
+    for (const kw of keywords) {
+      if (vName.includes(kw.toLowerCase())) {
+        score += 55;
+        break;
+      }
+    }
+
+    // High bonus for Natural / Online / Neural voices (actual human native speech)
+    if (vName.includes("natural") || vName.includes("online") || vName.includes("neural")) {
+      score += 40;
+    }
+
+    // Default voice slight preference
+    if (voice.default && score > 0) {
+      score += 5;
+    }
+
+    // Never pick an unrelated language voice for an Indic request
+    if (primary !== "en" && !vLang.startsWith(primary) && !keywords.some((k) => vName.includes(k.toLowerCase()))) {
+      continue;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestVoice = voice;
+    }
   }
 
-  // 4. IMPORTANT ACCESSIBILITY RULE:
-  // If no native voice exists for an Indic language (kn, hi, ta, bn),
-  // NEVER force an English voice! Return null so modern browsers (Chrome, Edge, Safari)
-  // automatically invoke their online multilingual TTS engine for utterance.lang!
+  if (bestVoice) {
+    return bestVoice;
+  }
+
+  // If no native voice exists for an Indic language, return null so modern browsers
+  // (Chrome, Edge) invoke their built-in speech engine for utterance.lang without forcing an English voice.
   if (primary !== "en") {
     return null;
   }
 
-  // 5. For English, return default voice or first English voice
   const enVoice = voices.find((v) => v.lang.toLowerCase().startsWith("en"));
   return enVoice || voices.find((v) => v.default) || voices[0] || null;
+}
+
+if (typeof window !== "undefined" && "speechSynthesis" in window) {
+  try {
+    window.speechSynthesis.onvoiceschanged = () => {
+      // Pre-warm voice list in memory
+      getAvailableVoices();
+    };
+  } catch {
+    // ignore
+  }
 }
 
 let activeUtterance: SpeechSynthesisUtterance | null = null;
@@ -492,6 +534,351 @@ export function repeatLastSpoken(): boolean {
   return true;
 }
 
+export const QUICK_INDIC_TRANSLATIONS: Record<string, Record<string, string>> = {
+  kn: {
+    space: "ಸ್ಪೇಸ್",
+    spacebar: "ಸ್ಪೇಸ್",
+    backspace: "ಬ್ಯಾಕ್‌ಸ್ಪೇಸ್",
+    "dot 1 raised": "ಡಾಟ್ 1 ಎತ್ತಲಾಗಿದೆ",
+    "dot 1 lowered": "ಡಾಟ್ 1 ಇಳಿಸಲಾಗಿದೆ",
+    "dot 2 raised": "ಡಾಟ್ 2 ಎತ್ತಲಾಗಿದೆ",
+    "dot 2 lowered": "ಡಾಟ್ 2 ಇಳಿಸಲಾಗಿದೆ",
+    "dot 3 raised": "ಡಾಟ್ 3 ಎತ್ತಲಾಗಿದೆ",
+    "dot 3 lowered": "ಡಾಟ್ 3 ಇಳಿಸಲಾಗಿದೆ",
+    "dot 4 raised": "ಡಾಟ್ 4 ಎತ್ತಲಾಗಿದೆ",
+    "dot 4 lowered": "ಡಾಟ್ 4 ಇಳಿಸಲಾಗಿದೆ",
+    "dot 5 raised": "ಡಾಟ್ 5 ಎತ್ತಲಾಗಿದೆ",
+    "dot 5 lowered": "ಡಾಟ್ 5 ಇಳಿಸಲಾಗಿದೆ",
+    "dot 6 raised": "ಡಾಟ್ 6 ಎತ್ತಲಾಗಿದೆ",
+    "dot 6 lowered": "ಡಾಟ್ 6 ಇಳಿಸಲಾಗಿದೆ",
+    "cleared active dots.": "ಸಕ್ರಿಯ ಡಾಟ್‌ಗಳನ್ನು ತೆರವುಗೊಳಿಸಲಾಗಿದೆ.",
+    "cleared active dots": "ಸಕ್ರಿಯ ಡಾಟ್‌ಗಳನ್ನು ತೆರವುಗೊಳಿಸಲಾಗಿದೆ.",
+    "inserted empty cell space.": "ಖಾಲಿ ಕೋಶದ ಜಾಗ ಸೇರಿಸಲಾಗಿದೆ.",
+    "inserted empty cell space": "ಖಾಲಿ ಕೋಶದ ಜಾಗ ಸೇರಿಸಲಾಗಿದೆ.",
+    "progress has been reset.": "ಕಲಿಕೆಯ ಪ್ರಗತಿಯನ್ನು ಮರುಹೊಂದಿಸಲಾಗಿದೆ.",
+    "progress has been reset": "ಕಲಿಕೆಯ ಪ್ರಗತಿಯನ್ನು ಮರುಹೊಂದಿಸಲಾಗಿದೆ.",
+    "your braille game accuracy and streaks have been reset to zero.":
+      "ನಿಮ್ಮ ಬ್ರೈಲ್ ಆಟದ ನಿಖರತೆ ಮತ್ತು ಸ್ಟ್ರೀಕ್‌ಗಳನ್ನು ಶೂನ್ಯಕ್ಕೆ ಮರುಹೊಂದಿಸಲಾಗಿದೆ.",
+    "braille copied to clipboard.": "ಬ್ರೈಲ್ ಕ್ಲಿಪ್‌ಬೋರ್ಡ್‌ಗೆ ನಕಲಿಸಲಾಗಿದೆ.",
+    "braille copied to clipboard": "ಬ್ರೈಲ್ ಕ್ಲಿಪ್‌ಬೋರ್ಡ್‌ಗೆ ನಕಲಿಸಲಾಗಿದೆ.",
+    "please enter text to translate.": "ದಯವಿಟ್ಟು ಅನುವಾದಿಸಲು ಪಠ್ಯವನ್ನು ನಮೂದಿಸಿ.",
+    "cleared translator.": "ಅನುವಾದಕವನ್ನು ತೆರವುಗೊಳಿಸಲಾಗಿದೆ.",
+    "translation could not be completed.": "ಅನುವಾದವನ್ನು ಪೂರ್ಣಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.",
+    "downloaded braille text file.": "ಬ್ರೈಲ್ ಪಠ್ಯ ಫೈಲ್ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾಗಿದೆ.",
+    "downloaded brf braille file for embosser.": "ಎಂಬಾಸರ್‌ಗಾಗಿ ಬಿ ಆರ್ ಎಫ್ ಬ್ರೈಲ್ ಫೈಲ್ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲಾಗಿದೆ.",
+    "removed note.": "ಟಿಪ್ಪಣಿಯನ್ನು ತೆಗೆದುಹಾಕಲಾಗಿದೆ.",
+    "removed notice.": "ಸೂಚನೆಯನ್ನು ತೆಗೆದುಹಾಕಲಾಗಿದೆ.",
+    "welcome to braillebridge ai": "ಬ್ರೈಲ್ ಬ್ರಿಡ್ಜ್ ಎ ಐ ಗೆ ಸುಸ್ವಾಗತ",
+    "braille games academy: select a game tab and answer the braille prompt.":
+      "ಬ್ರೈಲ್ ಗೇಮ್ಸ್ ಅಕಾಡೆಮಿ: ಆಟದ ಟ್ಯಾಬ್ ಆಯ್ಕೆಮಾಡಿ ಮತ್ತು ಬ್ರೈಲ್ ಪ್ರಶ್ನೆಗೆ ಉತ್ತರಿಸಿ.",
+    "please select or build an answer before submitting.":
+      "ದಯವಿಟ್ಟು ಸಲ್ಲಿಸುವ ಮೊದಲು ಉತ್ತರವನ್ನು ಆಯ್ಕೆಮಾಡಿ.",
+    "high contrast mode enabled.": "ಹೈ ಕಾಂಟ್ರಾಸ್ಟ್ ಮೋಡ್ ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ.",
+    "high contrast mode disabled.": "ಹೈ ಕಾಂಟ್ರಾಸ್ಟ್ ಮೋಡ್ ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ.",
+    "closed perkins keyboard.": "ಪರ್ಕಿನ್ಸ್ ಕೀಬೋರ್ಡ್ ಮುಚ್ಚಲಾಗಿದೆ.",
+    "opened perkins 6-key keyboard. use keys s d f and j k l to type.":
+      "ಪರ್ಕಿನ್ಸ್ 6-ಕೀ ಕೀಬೋರ್ಡ್ ತೆರೆಯಲಾಗಿದೆ. ಟೈಪ್ ಮಾಡಲು ಎಸ್ ಡಿ ಎಫ್ ಮತ್ತು ಜೆ ಕೆ ಎಲ್ ಕೀಗಳನ್ನು ಬಳಸಿ.",
+  },
+  hi: {
+    space: "स्पेस",
+    spacebar: "स्पेस",
+    backspace: "बैकस्पेस",
+    "dot 1 raised": "डॉट 1 उठाया गया",
+    "dot 1 lowered": "डॉट 1 नीचे किया गया",
+    "dot 2 raised": "डॉट 2 उठाया गया",
+    "dot 2 lowered": "डॉट 2 नीचे किया गया",
+    "dot 3 raised": "डॉट 3 उठाया गया",
+    "dot 3 lowered": "डॉट 3 नीचे किया गया",
+    "dot 4 raised": "डॉट 4 उठाया गया",
+    "dot 4 lowered": "डॉट 4 नीचे किया गया",
+    "dot 5 raised": "डॉट 5 उठाया गया",
+    "dot 5 lowered": "डॉट 5 नीचे किया गया",
+    "dot 6 raised": "डॉट 6 उठाया गया",
+    "dot 6 lowered": "डॉट 6 नीचे किया गया",
+    "cleared active dots.": "सक्रिय डॉट्स साफ़ किए गए।",
+    "cleared active dots": "सक्रिय डॉट्स साफ़ किए गए।",
+    "inserted empty cell space.": "खाली सेल स्पेस डाला गया।",
+    "inserted empty cell space": "खाली सेल स्पेस डाला गया।",
+    "progress has been reset.": "प्रगति रीसेट कर दी गई है।",
+    "progress has been reset": "प्रगति रीसेट कर दी गई है।",
+    "your braille game accuracy and streaks have been reset to zero.":
+      "आपकी ब्रेल खेल सटीकता और लकीरें शून्य पर रीसेट कर दी गई हैं।",
+    "braille copied to clipboard.": "ब्रेल क्लिपबोर्ड पर कॉपी किया गया।",
+    "braille copied to clipboard": "ब्रेल क्लिपबोर्ड पर कॉपी किया गया।",
+    "please enter text to translate.": "कृपया अनुवाद करने के लिए टेक्स्ट दर्ज करें।",
+    "cleared translator.": "अनुवादक साफ़ किया गया।",
+    "translation could not be completed.": "अनुवाद पूरा नहीं किया जा सका।",
+    "downloaded braille text file.": "ब्रेल टेक्स्ट फ़ाइल डाउनलोड की गई।",
+    "downloaded brf braille file for embosser.": "एम्बॉसर के लिए बी आर एफ ब्रेल फ़ाइल डाउनलोड की गई।",
+    "removed note.": "नोट हटा दिया गया।",
+    "removed notice.": "सूचना हटा दी गई।",
+    "welcome to braillebridge ai": "ब्रेल ब्रिज ए आई में आपका स्वागत है",
+    "braille games academy: select a game tab and answer the braille prompt.":
+      "ब्रेल गेम्स अकादमी: गेम टैब चुनें और ब्रेल प्रश्न का उत्तर दें।",
+    "please select or build an answer before submitting.":
+      "कृपया सबमिट करने से पहले उत्तर चुनें या बनाएं।",
+    "high contrast mode enabled.": "उच्च कंट्रास्ट मोड सक्षम किया गया।",
+    "high contrast mode disabled.": "उच्च कंट्रास्ट मोड अक्षम किया गया।",
+    "closed perkins keyboard.": "पर्किन्स कीबोर्ड बंद किया गया।",
+    "opened perkins 6-key keyboard. use keys s d f and j k l to type.":
+      "पर्किन्स 6-कुंजी कीबोर्ड खोला गया। टाइप करने के लिए एस डी एफ और जे ಕೆ ಎಲ್ कुंजियों का उपयोग करें।",
+  },
+  ta: {
+    space: "ஸ்பேஸ்",
+    spacebar: "ஸ்பேஸ்",
+    backspace: "பேக்ஸ்பேஸ்",
+    "dot 1 raised": "புள்ளி 1 உயர்த்தப்பட்டது",
+    "dot 1 lowered": "புள்ளி 1 இறக்கப்பட்டது",
+    "cleared active dots.": "செயலில் உள்ள புள்ளிகள் அழிக்கப்பட்டன.",
+    "cleared active dots": "செயலில் உள்ள புள்ளிகள் அழிக்கப்பட்டன.",
+    "progress has been reset.": "முன்னேற்றம் மீட்டமைக்கப்பட்டது.",
+    "braille copied to clipboard.": "பிரெய்ல் கிளிப்போர்டுக்கு நகலெடுக்கப்பட்டது.",
+    "please enter text to translate.": "மொழிபெயர்க்க உரையை உள்ளிடவும்.",
+    "cleared translator.": "மொழிபெயர்ப்பாளர் அழிக்கப்பட்டார்.",
+    "removed note.": "குறிப்பு அகற்றப்பட்டது.",
+    "removed notice.": "அறிவிப்பு அகற்றப்பட்டது.",
+  },
+  bn: {
+    space: "স্পেস",
+    spacebar: "স্পেস",
+    backspace: "ব্যাকস্পেস",
+    "dot 1 raised": "ডট ১ তোলা হয়েছে",
+    "dot 1 lowered": "ডট ১ নামানো হয়েছে",
+    "cleared active dots.": "সক্রিয় ডট মুছে ফেলা হয়েছে।",
+    "cleared active dots": "সক্রিয় ডট মুছে ফেলা হয়েছে।",
+    "progress has been reset.": "অগ্রগতি পুনরায় সেট করা হয়েছে।",
+    "braille copied to clipboard.": "ব্রেইল ক্লিপবোর্ডে কপি করা হয়েছে।",
+    "please enter text to translate.": "অনুবাদ করার জন্য পাঠ্য লিখুন।",
+    "cleared translator.": "অনুবাদক মুছে ফেলা হয়েছে।",
+    "removed note.": "নোট সরানো হয়েছে।",
+    "removed notice.": "বিজ্ঞপ্তি সরানো হয়েছে।",
+  },
+};
+
+export function lookupQuickIndicTranslation(text: string, primaryLang: string): string | null {
+  const dict = QUICK_INDIC_TRANSLATIONS[primaryLang];
+  const cleaned = text.trim();
+  const lower = cleaned.toLowerCase();
+
+  if (dict && dict[lower]) {
+    return dict[lower];
+  }
+
+  // Dot N raised/lowered pattern
+  const dotMatch = cleaned.match(/^Dot\s+(\d+)\s+(raised|lowered)(?:\.\s*Current:\s*(.*))?$/i);
+  if (dotMatch) {
+    const num = dotMatch[1];
+    const isRaised = dotMatch[2].toLowerCase() === "raised";
+    const currentDesc = dotMatch[3] ? dotMatch[3].trim() : "";
+    if (primaryLang === "kn") {
+      const act = isRaised ? "ಎತ್ತಲಾಗಿದೆ" : "ಇಳಿಸಲಾಗಿದೆ";
+      return currentDesc ? `ಡಾಟ್ ${num} ${act}. ಪ್ರಸ್ತುತ: ${currentDesc}` : `ಡಾಟ್ ${num} ${act}`;
+    }
+    if (primaryLang === "hi") {
+      const act = isRaised ? "उठाया गया" : "नीचे किया गया";
+      return currentDesc ? `डॉट ${num} ${act}। वर्तमान: ${currentDesc}` : `डॉट ${num} ${act}`;
+    }
+  }
+
+  // Inserted cell X, desc pattern
+  const cellMatch = cleaned.match(/^Inserted cell\s+([^,]+),\s*(.+)$/i);
+  if (cellMatch) {
+    if (primaryLang === "kn") return `ಕೋಶ ${cellMatch[1]} ಸೇರಿಸಲಾಗಿದೆ, ${cellMatch[2]}`;
+    if (primaryLang === "hi") return `सेल ${cellMatch[1]} डाला गया, ${cellMatch[2]}`;
+  }
+
+  // Cell N: X, desc pattern
+  const cellInspMatch = cleaned.match(/^Cell\s+(\d+):\s*([^,]+),\s*(.+)$/i);
+  if (cellInspMatch) {
+    if (primaryLang === "kn") return `ಕೋಶ ${cellInspMatch[1]}: ${cellInspMatch[2]}, ${cellInspMatch[3]}`;
+    if (primaryLang === "hi") return `सेल ${cellInspMatch[1]}: ${cellInspMatch[2]}, ${cellInspMatch[3]}`;
+  }
+
+  // Student name updated pattern
+  const nameMatch = cleaned.match(/^Student name updated to\s+(.+?)\.?$/i);
+  if (nameMatch) {
+    if (primaryLang === "kn") return `ವಿದ್ಯಾರ್ಥಿಯ ಹೆಸರನ್ನು ${nameMatch[1]} ಗೆ ನವೀಕರಿಸಲಾಗಿದೆ.`;
+    if (primaryLang === "hi") return `विद्यार्थी का नाम ${nameMatch[1]} पर अपडेट किया गया।`;
+  }
+
+  // Loaded note / Loaded notice pattern
+  const noteMatch = cleaned.match(/^Loaded\s+"?([^".]+)"?\.?$/i);
+  if (noteMatch) {
+    if (primaryLang === "kn") return `"${noteMatch[1]}" ಲೋಡ್ ಮಾಡಲಾಗಿದೆ.`;
+    if (primaryLang === "hi") return `"${noteMatch[1]}" लोड किया गया।`;
+  }
+
+  return null;
+}
+
+const clientTranslationCache = new Map<string, string>();
+
+export async function translateTextIfNeeded(text: string, targetLang: string): Promise<string> {
+  const shortLang = (targetLang || "en").split("-")[0].toLowerCase();
+  if (shortLang === "en") return text;
+
+  const detected = detectScriptLanguage(text);
+  if (detected && detected.startsWith(shortLang)) {
+    return text;
+  }
+
+  const quick = lookupQuickIndicTranslation(text, shortLang);
+  if (quick) return quick;
+
+  const cacheKey = `${shortLang}:${text.trim()}`;
+  if (clientTranslationCache.has(cacheKey)) {
+    return clientTranslationCache.get(cacheKey)!;
+  }
+
+  if (!/[a-zA-Z]{2,}/.test(text)) {
+    return text;
+  }
+
+  try {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        sourceLang: "en",
+        targetLang: shortLang,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.translatedText && typeof data.translatedText === "string") {
+        clientTranslationCache.set(cacheKey, data.translatedText);
+        return data.translatedText;
+      }
+    }
+  } catch {
+    // fallback
+  }
+
+  return normalizeTextForSpeechLang(text, shortLang);
+}
+
+function playViaRemoteTTS(
+  processedText: string,
+  langToUse: string,
+  options: TTSOptions,
+  sessionId: number
+): void {
+  if (typeof window === "undefined" || typeof fetch === "undefined") {
+    fallbackToBrowserTTS(processedText, langToUse, options, sessionId);
+    return;
+  }
+
+  const primaryLang = langToUse.split("-")[0].toLowerCase();
+  const segments = splitSpeechSegmentsWithPauses(processedText, 140);
+  let idx = 0;
+
+  const advanceAfterSegment = (seg: SpeechSegment) => {
+    if (sessionId !== ttsSessionId) return;
+    idx++;
+    if (idx >= segments.length) {
+      activeAudioElement = null;
+      activeBufferSource = null;
+      revokeActiveAudioUrl();
+      options.onEnd?.();
+    } else {
+      activePauseTimer = setTimeout(playNextSegment, seg.pauseAfterMs);
+    }
+  };
+
+  const playNextSegment = async () => {
+    if (sessionId !== ttsSessionId) return;
+    if (idx >= segments.length) {
+      activeAudioElement = null;
+      activeBufferSource = null;
+      revokeActiveAudioUrl();
+      options.onEnd?.();
+      return;
+    }
+
+    const seg = segments[idx];
+    const url = `/api/tts?text=${encodeURIComponent(seg.text)}&lang=${encodeURIComponent(primaryLang)}`;
+
+    try {
+      const res = await fetch(url);
+      if (sessionId !== ttsSessionId) return;
+      if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+      const blob = await res.blob();
+      if (sessionId !== ttsSessionId) return;
+      if (!blob || blob.size < 100) throw new Error("Empty TTS audio");
+
+      if (typeof Audio !== "undefined") {
+        const audio = sharedAudioElement || new Audio();
+        sharedAudioElement = audio;
+        revokeActiveAudioUrl();
+        activeAudioUrl = URL.createObjectURL(blob);
+        audio.src = activeAudioUrl;
+        audio.playbackRate = options.rate ?? 1.0;
+        activeAudioElement = audio;
+
+        audio.onended = () => {
+          if (sessionId !== ttsSessionId) return;
+          advanceAfterSegment(seg);
+        };
+        audio.onerror = () => {
+          activeAudioElement = null;
+          revokeActiveAudioUrl();
+          if (sessionId === ttsSessionId) {
+            fallbackToBrowserTTS(
+              segments.slice(idx).map((s) => s.text).join(" "),
+              langToUse,
+              options,
+              sessionId
+            );
+          }
+        };
+
+        try {
+          if (idx === 0) options.onStart?.();
+          await audio.play();
+          return;
+        } catch {
+          activeAudioElement = null;
+          revokeActiveAudioUrl();
+          const ctx = getAudioContext();
+          if (ctx) {
+            const arrayBuf = await blob.arrayBuffer();
+            if (sessionId !== ttsSessionId) return;
+            const decoded = await ctx.decodeAudioData(arrayBuf.slice(0));
+            if (sessionId !== ttsSessionId) return;
+            const source = ctx.createBufferSource();
+            source.buffer = decoded;
+            source.playbackRate.value = options.rate ?? 1.0;
+            source.connect(ctx.destination);
+            activeBufferSource = source;
+            source.onended = () => {
+              if (activeBufferSource === source) activeBufferSource = null;
+              if (sessionId !== ttsSessionId) return;
+              advanceAfterSegment(seg);
+            };
+            if (idx === 0) options.onStart?.();
+            source.start(0);
+            return;
+          }
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (sessionId === ttsSessionId) {
+      fallbackToBrowserTTS(
+        segments.slice(idx).map((s) => s.text).join(" "),
+        langToUse,
+        options,
+        sessionId
+      );
+    }
+  };
+
+  playNextSegment();
+}
+
 function fallbackToBrowserTTS(
   cleanText: string,
   langToUse: string,
@@ -499,7 +886,7 @@ function fallbackToBrowserTTS(
   sessionId: number
 ): void {
   if (!isTTSSupported()) {
-    options.onError?.("Speech synthesis is not supported in this browser.");
+    playViaRemoteTTS(cleanText, langToUse, options, sessionId);
     return;
   }
 
@@ -556,6 +943,8 @@ function fallbackToBrowserTTS(
       activeUtterance = null;
       if (e.error !== "canceled" && e.error !== "interrupted") {
         options.onError?.(`Speech error: ${e.error}`);
+        // Fall back to remote audio streaming if browser speech encounters an error
+        playViaRemoteTTS(seg.text, langToUse, options, sessionId);
       } else {
         options.onEnd?.();
       }
@@ -580,148 +969,73 @@ export function speakText(text: string, options: TTSOptions = {}): void {
   prepareAudioForSpeech();
   const currentSession = ++ttsSessionId;
 
-  const detectedLang = detectScriptLanguage(rawTrimmed);
   const rawLang = options.lang || getActiveLanguage();
-  const rawPrimary = rawLang.split("-")[0].toLowerCase();
+  const detectedLang = detectScriptLanguage(rawTrimmed);
 
-  // If the text itself is clearly in an Indic script (e.g. Kannada, Hindi, Tamil, Bengali),
-  // ensure we speak it in that language instead of letting an English voice skip it.
+  // If text is written in an Indic script and language was English, switch to the detected Indic language
   const langToUse =
-    detectedLang && rawPrimary === "en" ? detectedLang : rawLang;
-  const primaryLang = (
-    detectedLang ? detectedLang.split("-")[0] : langToUse.split("-")[0]
-  ).toLowerCase();
-
-  const rawOrFormatted = options.raw
-    ? rawTrimmed
-    : formatTextForSpeech(rawTrimmed, options.punctuationMode || getPunctuationMode());
-
-  const processedText = normalizeTextForSpeechLang(rawOrFormatted, primaryLang);
+    detectedLang && rawLang.split("-")[0].toLowerCase() === "en" ? detectedLang : rawLang;
+  const primaryLang = langToUse.split("-")[0].toLowerCase();
 
   lastSpokenText = rawTrimmed;
   lastSpokenOptions = { ...options, lang: langToUse };
 
-  // For Indic languages (Kannada, Hindi, Tamil, Bengali):
-  // Fetch native MP3 audio via /api/tts and play via shared HTMLAudio / Web Audio API
-  // so multi-segment speech and async-translated text never fail autoplay or fall back to ASCII spelling.
-  if (
-    (primaryLang === "kn" || primaryLang === "hi" || primaryLang === "ta" || primaryLang === "bn") &&
-    typeof window !== "undefined" &&
-    typeof fetch !== "undefined"
-  ) {
-    const segments = splitSpeechSegmentsWithPauses(processedText, 140);
-    let idx = 0;
+  const executePlayback = (finalText: string) => {
+    if (currentSession !== ttsSessionId) return;
 
-    const advanceAfterSegment = (seg: SpeechSegment) => {
-      if (currentSession !== ttsSessionId) return;
-      idx++;
-      if (idx >= segments.length) {
-        activeAudioElement = null;
-        activeBufferSource = null;
-        revokeActiveAudioUrl();
-        options.onEnd?.();
-      } else {
-        activePauseTimer = setTimeout(playNextSegment, seg.pauseAfterMs);
-      }
-    };
+    const rawOrFormatted = options.raw
+      ? finalText
+      : formatTextForSpeech(finalText, options.punctuationMode || getPunctuationMode());
 
-    const playNextSegment = async () => {
-      if (currentSession !== ttsSessionId) return;
-      if (idx >= segments.length) {
-        activeAudioElement = null;
-        activeBufferSource = null;
-        revokeActiveAudioUrl();
-        options.onEnd?.();
+    const processedText = normalizeTextForSpeechLang(rawOrFormatted, primaryLang);
+
+    // STRICT NATIVE VOICE PRIORITY:
+    // Always prefer browser native speech synthesis with Karnataka Kannada (Microsoft Gagan / Google ಕನ್ನಡ)
+    // or native Hindi (Microsoft Swara / Madhur / Google हिन्दी) voice.
+    if (isTTSSupported()) {
+      const nativeVoice = findBestVoiceForLanguage(langToUse);
+      if (nativeVoice || primaryLang === "en") {
+        fallbackToBrowserTTS(processedText, langToUse, options, currentSession);
         return;
       }
-
-      const seg = segments[idx];
-      const url = `/api/tts?text=${encodeURIComponent(seg.text)}&lang=${encodeURIComponent(primaryLang)}`;
-
       try {
-        const res = await fetch(url);
-        if (currentSession !== ttsSessionId) return;
-        if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
-        const blob = await res.blob();
-        if (currentSession !== ttsSessionId) return;
-        if (!blob || blob.size < 100) throw new Error("Empty TTS audio");
-
-        // Prefer reusable sharedAudioElement so pause/resume/playbackRate stay simple
-        if (typeof Audio !== "undefined") {
-          const audio = sharedAudioElement || new Audio();
-          sharedAudioElement = audio;
-          revokeActiveAudioUrl();
-          activeAudioUrl = URL.createObjectURL(blob);
-          audio.src = activeAudioUrl;
-          audio.playbackRate = options.rate ?? 1.0;
-          activeAudioElement = audio;
-
-          audio.onended = () => {
-            if (currentSession !== ttsSessionId) return;
-            advanceAfterSegment(seg);
-          };
-          audio.onerror = () => {
-            activeAudioElement = null;
-            revokeActiveAudioUrl();
-            if (currentSession === ttsSessionId) {
-              fallbackToBrowserTTS(
-                segments.slice(idx).map((s) => s.text).join(" "),
-                langToUse,
-                options,
-                currentSession
-              );
-            }
-          };
-
-          try {
-            if (idx === 0) options.onStart?.();
-            await audio.play();
-            return;
-          } catch {
-            // Try Web Audio API decodeAudioData when <audio>.play() is blocked after async fetch
-            activeAudioElement = null;
-            revokeActiveAudioUrl();
-            const ctx = getAudioContext();
-            if (ctx) {
-              const arrayBuf = await blob.arrayBuffer();
-              if (currentSession !== ttsSessionId) return;
-              const decoded = await ctx.decodeAudioData(arrayBuf.slice(0));
-              if (currentSession !== ttsSessionId) return;
-              const source = ctx.createBufferSource();
-              source.buffer = decoded;
-              source.playbackRate.value = options.rate ?? 1.0;
-              source.connect(ctx.destination);
-              activeBufferSource = source;
-              source.onended = () => {
-                if (activeBufferSource === source) activeBufferSource = null;
-                if (currentSession !== ttsSessionId) return;
-                advanceAfterSegment(seg);
-              };
-              if (idx === 0) options.onStart?.();
-              source.start(0);
-              return;
-            }
-          }
-        }
+        fallbackToBrowserTTS(processedText, langToUse, options, currentSession);
+        return;
       } catch {
-        // Fallback below
+        // Fall back to remote audio streaming
       }
+    }
 
-      if (currentSession === ttsSessionId) {
-        fallbackToBrowserTTS(
-          segments.slice(idx).map((s) => s.text).join(" "),
-          langToUse,
-          options,
-          currentSession
-        );
-      }
-    };
+    playViaRemoteTTS(processedText, langToUse, options, currentSession);
+  };
 
-    playNextSegment();
+  // FULL WEBSITE READ-ALOUD IN SELECTED LANGUAGE:
+  // When active language is an Indic language (Kannada, Hindi, Tamil, Bengali) and text contains English/Latin terms,
+  // automatically translate the text into the selected language so read-aloud works in that language across the whole website!
+  if (primaryLang !== "en" && !detectedLang && /[a-zA-Z]{2,}/.test(rawTrimmed)) {
+    const quick = lookupQuickIndicTranslation(rawTrimmed, primaryLang);
+    if (quick) {
+      executePlayback(quick);
+      return;
+    }
+
+    const cacheKey = `${primaryLang}:${rawTrimmed}`;
+    if (clientTranslationCache.has(cacheKey)) {
+      executePlayback(clientTranslationCache.get(cacheKey)!);
+      return;
+    }
+
+    translateTextIfNeeded(rawTrimmed, langToUse)
+      .then((translated) => {
+        executePlayback(translated || rawTrimmed);
+      })
+      .catch(() => {
+        executePlayback(rawTrimmed);
+      });
     return;
   }
 
-  fallbackToBrowserTTS(processedText, langToUse, options, currentSession);
+  executePlayback(rawTrimmed);
 }
 
 export function pauseSpeaking(): void {
