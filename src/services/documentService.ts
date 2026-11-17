@@ -5,6 +5,7 @@
  */
 
 import * as pdfjsLib from "pdfjs-dist";
+import { getActiveLanguage } from "./speechService";
 
 // Serve worker from local Express server rather than external CDN
 if (typeof window !== "undefined") {
@@ -172,6 +173,14 @@ export async function extractDocumentFile(
   };
 }
 
+/** Resolve the selected app language to Tesseract trained-data codes. */
+export function getOcrLanguageCode(language = getActiveLanguage()): string {
+  const primary = String(language || "en-US").toLowerCase().split(/[-_]/)[0];
+  const trainedData: Record<string, string> = { en: "eng", hi: "hin", kn: "kan", ta: "tam", bn: "ben" };
+  const selected = trainedData[primary] || "eng";
+  return selected === "eng" ? "eng" : `eng+${selected}`;
+}
+
 /**
  * Heuristic score to pick the clearest OCR pass (prefers readable alphanumeric words over noise)
  */
@@ -319,17 +328,19 @@ async function extractImageViaOcr(
   try {
     onProgress?.(`Enhancing and scanning "${file.name}" with handwritten-aware OCR…`);
     const { createWorker } = await import("tesseract.js");
-    const worker = await createWorker("eng");
-
+    const worker = await createWorker(getOcrLanguageCode());
     let clean = "";
-    const canvas = await renderImageFileToCanvas(file);
-    if (canvas) {
-      clean = await recognizeCanvasWithHandwritingFallback(worker, canvas);
-    } else {
-      const ret = await worker.recognize(file);
-      clean = (ret?.data?.text || "").trim();
+    try {
+      const canvas = await renderImageFileToCanvas(file);
+      if (canvas) {
+        clean = await recognizeCanvasWithHandwritingFallback(worker, canvas);
+      } else {
+        const ret = await worker.recognize(file);
+        clean = (ret?.data?.text || "").trim();
+      }
+    } finally {
+      await worker.terminate();
     }
-    await worker.terminate();
 
     const words = clean ? clean.split(/\s+/).length : 0;
     return {
@@ -371,10 +382,10 @@ async function extractScannedPdfViaOcr(
   if (typeof document === "undefined") return "";
   try {
     const { createWorker } = await import("tesseract.js");
-    const worker = await createWorker("eng");
+    const worker = await createWorker(getOcrLanguageCode());
     const maxOcrPages = Math.min(pdf.numPages || 1, 8);
     const ocrTexts: string[] = [];
-
+    try {
     for (let pageNum = 1; pageNum <= maxOcrPages; pageNum++) {
       onProgress?.(
         `Scanning page ${pageNum} of ${maxOcrPages} with handwritten & print OCR…`
@@ -400,8 +411,10 @@ async function extractScannedPdfViaOcr(
       }
     }
 
-    await worker.terminate();
     return ocrTexts.filter(Boolean).join("\n\n").trim();
+    } finally {
+      await worker.terminate();
+    }
   } catch (err) {
     console.warn("Scanned PDF OCR fallback error:", err);
     return "";
