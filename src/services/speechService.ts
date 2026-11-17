@@ -937,7 +937,7 @@ export function resumeSpeaking(): boolean {
 
   if (activeSession.provider === "remote-tts") {
     if (activeSession.activeAudio && activeSession.activeAudio.paused) {
-      activeSession.activeAudio.play().catch(() => {});
+      activeSession.activeAudio.play().catch(() => { });
     }
   }
 

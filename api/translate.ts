@@ -33,3 +33,4 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: err?.message || "Translation failed" });
   }
 }
+
