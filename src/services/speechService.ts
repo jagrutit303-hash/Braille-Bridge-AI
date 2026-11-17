@@ -418,6 +418,8 @@ let sharedAudioElement: HTMLAudioElement | null = null;
 let activeAudioUrl: string | null = null;
 let activeBufferSource: AudioBufferSourceNode | null = null;
 let activePauseTimer: ReturnType<typeof setTimeout> | null = null;
+let playbackPaused = false;
+let pendingPlaybackResume: (() => void) | null = null;
 let ttsSessionId: number = 0;
 let lastSpokenText: string = "";
 let lastSpokenOptions: TTSOptions = {};
@@ -788,6 +790,7 @@ function playViaRemoteTTS(
 
   const playNextSegment = async () => {
     if (sessionId !== ttsSessionId) return;
+    if (playbackPaused) { pendingPlaybackResume = () => { void playNextSegment(); }; return; }
     if (idx >= segments.length) {
       activeAudioElement = null;
       activeBufferSource = null;
@@ -834,6 +837,10 @@ function playViaRemoteTTS(
         };
 
         try {
+          if (playbackPaused) {
+            pendingPlaybackResume = () => { void audio.play().catch(() => fallbackToBrowserTTS(segments.slice(idx).map((s) => s.text).join(" "), langToUse, options, sessionId)); };
+            return;
+          }
           if (idx === 0) options.onStart?.();
           await audio.play();
           return;
@@ -856,6 +863,10 @@ function playViaRemoteTTS(
               if (sessionId !== ttsSessionId) return;
               advanceAfterSegment(seg);
             };
+            if (playbackPaused) {
+              pendingPlaybackResume = () => { source.start(0); };
+              return;
+            }
             if (idx === 0) options.onStart?.();
             source.start(0);
             return;
@@ -899,6 +910,7 @@ function fallbackToBrowserTTS(
 
   const speakNextSegment = () => {
     if (sessionId !== ttsSessionId) return;
+    if (playbackPaused) { pendingPlaybackResume = speakNextSegment; return; }
     if (idx >= segments.length) {
       activeUtterance = null;
       options.onEnd?.();
@@ -1039,31 +1051,37 @@ export function speakText(text: string, options: TTSOptions = {}): void {
 }
 
 export function pauseSpeaking(): void {
-  if (activeAudioElement && !activeAudioElement.paused) {
-    activeAudioElement.pause();
-  }
+  if (!isSpeaking() && !activePauseTimer) return;
+  playbackPaused = true;
+  if (activeAudioElement && !activeAudioElement.paused) activeAudioElement.pause();
+  const audioContext = getAudioContext();
+  if (audioContext && audioContext.state === "running") void audioContext.suspend().catch(() => {});
   if (isTTSSupported() && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
     window.speechSynthesis.pause();
   }
 }
 
 export function resumeSpeaking(): void {
-  if (activeAudioElement && activeAudioElement.paused) {
-    activeAudioElement.play().catch(() => {});
+  if (!playbackPaused) return;
+  playbackPaused = false;
+  const audioContext = getAudioContext();
+  if (audioContext && audioContext.state === "suspended") void audioContext.resume().catch(() => {});
+  if (activeAudioElement && activeAudioElement.paused && activeAudioElement.currentTime > 0) {
+    void activeAudioElement.play().catch(() => {});
   }
-  if (isTTSSupported() && window.speechSynthesis.paused) {
-    window.speechSynthesis.resume();
-  }
+  if (isTTSSupported() && window.speechSynthesis.paused) window.speechSynthesis.resume();
+  const resume = pendingPlaybackResume;
+  pendingPlaybackResume = null;
+  resume?.();
 }
 
 export function isSpeechPaused(): boolean {
-  return (
-    Boolean(activeAudioElement?.paused && activeAudioElement?.currentTime > 0) ||
-    (isTTSSupported() && window.speechSynthesis.paused)
-  );
+  return playbackPaused || Boolean(isTTSSupported() && window.speechSynthesis.paused);
 }
 
 export function stopSpeaking(): void {
+  playbackPaused = false;
+  pendingPlaybackResume = null;
   ttsSessionId++;
   if (activePauseTimer) {
     clearTimeout(activePauseTimer);
