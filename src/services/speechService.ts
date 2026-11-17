@@ -319,9 +319,17 @@ export function splitSpeechSegmentsWithPauses(
   return segments.length > 0 ? segments : [{ text: text.slice(0, maxLen), pauseAfterMs: 0 }];
 }
 
+/** Only accept a voice whose declared locale is the requested language. */
+export function isNativeVoiceLanguageMatch(voiceLang: string, langCode: string): boolean {
+  const voiceLocale = (voiceLang || "").toLowerCase().replace(/_/g, "-");
+  const targetLocale = (langCode || "").toLowerCase().replace(/_/g, "-");
+  const primary = targetLocale.split("-")[0];
+  return Boolean(primary && (voiceLocale === targetLocale || voiceLocale === primary || voiceLocale.startsWith(primary + "-")));
+}
+
 /**
- * Finds the most suitable voice for a given language code (e.g., 'kn-IN', 'hi-IN', 'ta-IN', 'bn-IN', 'en-US')
- * strictly prioritizing authentic native regional accents (Karnataka Kannada, native Hindi, etc.).
+ * Finds the most suitable voice for a given language code (e.g., 'kn-IN', 'hi-IN', 'ta-IN', 'bn-IN', 'en-US').
+ * A voice with a different declared language is never selected based only on its display name.
  */
 export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice | null {
   const voices = getAvailableVoices();
@@ -349,6 +357,9 @@ export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice
     const vName = (voice.name || "").toLowerCase();
     let score = 0;
 
+    // Never allow a voice declared in another language to win by a name keyword.
+    if (!isNativeVoiceLanguageMatch(vLang, target)) continue;
+
     // Exact regional language match (e.g. kn-IN, hi-IN)
     if (vLang === target) {
       score += 100;
@@ -358,10 +369,10 @@ export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice
       score += 60;
     }
 
-    // Persona / native script keyword match
+    // Persona / native script keyword match is only a tie-breaker among native voices.
     for (const kw of keywords) {
       if (vName.includes(kw.toLowerCase())) {
-        score += 55;
+        score += 15;
         break;
       }
     }
@@ -374,11 +385,6 @@ export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice
     // Default voice slight preference
     if (voice.default && score > 0) {
       score += 5;
-    }
-
-    // Never pick an unrelated language voice for an Indic request
-    if (primary !== "en" && !vLang.startsWith(primary) && !keywords.some((k) => vName.includes(k.toLowerCase()))) {
-      continue;
     }
 
     if (score > bestScore) {
@@ -1001,20 +1007,15 @@ export function speakText(text: string, options: TTSOptions = {}): void {
 
     const processedText = normalizeTextForSpeechLang(rawOrFormatted, primaryLang);
 
-    // STRICT NATIVE VOICE PRIORITY:
-    // Always prefer browser native speech synthesis with Karnataka Kannada (Microsoft Gagan / Google ಕನ್ನಡ)
-    // or native Hindi (Microsoft Swara / Madhur / Google हिन्दी) voice.
+    // For Indic languages, use browser speech only when the browser exposes a voice
+    // whose declared locale is actually that language. Otherwise use the server's
+    // language-specific TTS endpoint instead of letting the browser silently speak
+    // Kannada/Hindi text with its default English voice.
     if (isTTSSupported()) {
       const nativeVoice = findBestVoiceForLanguage(langToUse);
-      if (nativeVoice || primaryLang === "en") {
+      if (primaryLang === "en" || nativeVoice) {
         fallbackToBrowserTTS(processedText, langToUse, options, currentSession);
         return;
-      }
-      try {
-        fallbackToBrowserTTS(processedText, langToUse, options, currentSession);
-        return;
-      } catch {
-        // Fall back to remote audio streaming
       }
     }
 
