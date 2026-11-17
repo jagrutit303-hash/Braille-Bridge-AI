@@ -16,7 +16,10 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Footer } from "./components/Footer";
 import {
   stopSpeaking,
+  pauseSpeaking,
+  resumeSpeaking,
   isSpeaking,
+  isSpeechPaused,
   getActiveLanguage,
   setActiveLanguage,
 } from "./services/speechService";
@@ -174,7 +177,7 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         stopSpeaking();
-      } else if (e.key === " " && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      } else if (e.key === " " && !e.repeat && !e.altKey && !e.ctrlKey && !e.metaKey) {
         const active = document.activeElement as HTMLElement | null;
         const tag = active?.tagName || "";
         const role = active?.getAttribute("role") || "";
@@ -186,8 +189,12 @@ export default function App() {
 
         if (!isInteractiveControl && !perkinsActive) {
           e.preventDefault();
-          if (isSpeaking()) {
-            stopSpeaking();
+          // Spacebar is a playback toggle: resume the same utterance when paused,
+          // pause active speech, and only request a new page read when idle.
+          if (isSpeechPaused()) {
+            resumeSpeaking();
+          } else if (isSpeaking()) {
+            pauseSpeaking();
           } else {
             window.dispatchEvent(new CustomEvent("braillebridge-space-read"));
           }
