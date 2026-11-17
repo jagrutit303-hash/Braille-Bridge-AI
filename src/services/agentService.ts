@@ -526,6 +526,31 @@ export function localRuleBasedPlanner(
     };
   }
 
+  // File upload intent: navigate to the study workspace and focus its accessible picker.
+  if (
+    lower.includes("upload") ||
+    lower.includes("choose a file") ||
+    lower.includes("select a file") ||
+    lower.includes("attach a file") ||
+    lower.includes("ಫೈಲ್ ಅಪ್‌ಲೋಡ್") ||
+    lower.includes("फ़ाइल अपलोड") ||
+    lower.includes("கோப்பை பதிவேற்ற")
+  ) {
+    return {
+      userIntent: "Upload a study document",
+      explanation: "Opening the Study Companion and preparing the file picker.",
+      steps: [{
+        id: "step-request-file-upload",
+        toolName: "request_file_upload",
+        description: "Open the study document upload control",
+        parameters: {},
+        status: "pending",
+      }],
+      currentStepIndex: 0,
+      completed: false,
+    };
+  }
+
   // 1. Navigation intents (English, Hindi, Kannada, Tamil, Bengali)
   const isNav =
     lower.includes("go to") ||
@@ -985,6 +1010,21 @@ export async function executeAgentStep(
   const phrases = getPhrases(activeLang);
 
   switch (step.toolName) {
+    case "request_file_upload": {
+      context.onNavigate("study");
+      if (typeof window !== "undefined") {
+        // Let React mount the Study Companion before asking it to focus the picker.
+        window.setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("braillebridge-request-file-upload"));
+        }, 450);
+      }
+      return {
+        success: true,
+        message: "The Study Companion is ready. The file upload control is focused; press Enter or activate Choose File to select your document.",
+        data: { requestedFileUpload: true, page: "study" },
+      };
+    }
+
     case "navigate_page": {
       const page = step.parameters.page as NavPage;
       context.onNavigate(page);
