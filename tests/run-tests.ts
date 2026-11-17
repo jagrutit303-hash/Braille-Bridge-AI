@@ -51,6 +51,7 @@ import {
   SUPPORTED_LANGUAGES,
   getLanguageName,
 } from "../src/services/i18nService";
+import { isNativeVoiceLanguageMatch } from "../src/services/speechService";
 import {
   addAgentAuditEntry,
   getAgentAuditLog,
@@ -834,6 +835,17 @@ assert(
     getOcrLanguageCode("bn-IN") === "eng+ben" &&
     getOcrLanguageCode("fr-FR") === "eng",
   "OCR selects English plus the supported active Indic language and safely defaults unsupported languages to English"
+);
+
+assert(
+  isNativeVoiceLanguageMatch("kn-IN", "kn-IN") &&
+    isNativeVoiceLanguageMatch("kn", "kn-IN") &&
+    isNativeVoiceLanguageMatch("kn-AU", "kn-IN") &&
+    !isNativeVoiceLanguageMatch("en-US", "kn-IN") &&
+    !isNativeVoiceLanguageMatch("en-IN", "hi-IN") &&
+    isNativeVoiceLanguageMatch("hi-IN", "hi-IN") &&
+    !isNativeVoiceLanguageMatch("en-US", "ta-IN"),
+  "Native-language speech never selects a browser voice declared in English or another language"
 );
 
 const uploadPlan = localRuleBasedPlanner("I want to upload a file", "home", "en-US");
