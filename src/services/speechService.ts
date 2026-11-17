@@ -157,93 +157,110 @@ export function setPunctuationMode(mode: PunctuationMode): void {
  */
 export function formatTextForSpeech(
   text: string,
-  mode: PunctuationMode = getPunctuationMode()
+  mode: PunctuationMode = getPunctuationMode(),
+  targetLang: string = "en-US"
 ): string {
   if (!text) return "";
   let out = text;
+  const primaryLang = (targetLang || "en").split("-")[0].toLowerCase();
+  const isEnglish = primaryLang === "en";
 
   // Replace Braille Unicode glyphs (U+2800 to U+28FF) so screen-reader speech never drops silent gaps
   out = out.replace(/[\u2800-\u28FF]/g, (ch) => {
     const code = ch.charCodeAt(0) - 0x2800;
-    if (code === 0) return " empty Braille cell ";
+    if (code === 0) return isEnglish ? " empty Braille cell " : " ";
     const dots: number[] = [];
     for (let i = 0; i < 6; i++) {
       if ((code & (1 << i)) !== 0) dots.push(i + 1);
     }
-    return ` Braille dots ${dots.join(" ")} `;
+    return isEnglish ? ` Braille dots ${dots.join(" ")} ` : ` ${dots.join(" ")} `;
   });
 
-  // UI & Document Unicode bullets / status markers
-  out = out
-    .replace(/✓/g, " verified, ")
-    .replace(/✗/g, " incorrect, ")
-    .replace(/⚠/g, " warning, ")
-    .replace(/•/g, "\nBullet: ")
-    .replace(/=>/g, " fat arrow ")
-    .replace(/->|→/g, " arrow ");
-
-  // Multi-character comparison / logic operators in technical text
-  out = out
-    .replace(/!==/g, " strictly not equals ")
-    .replace(/===/g, " strictly equals ")
-    .replace(/!=/g, " not equals ")
-    .replace(/==/g, " double equals ")
-    .replace(/<=/g, " less than or equal to ")
-    .replace(/>=/g, " greater than or equal to ")
-    .replace(/&&/g, " logical AND ")
-    .replace(/\|\|/g, " logical OR ")
-    .replace(/\+\+/g, " increment ")
-    .replace(/--/g, " decrement ");
-
-  // Array / subscript indexing syntax like arr[i], matrix[0][1]
-  out = out.replace(/\b([A-Za-z_]\w*)\[([^\[\]]+)\]/g, (_m, name, idx) => {
-    return `${name} index ${idx.trim()}`;
-  });
-
-  // Dimensions like 2x3 or 6x6
-  out = out.replace(/\b(\d+)\s*[x×]\s*(\d+)\b/gi, "$1 by $2");
-
-  // Percentages
-  out = out.replace(/(\d+(?:\.\d+)?)\s*%/g, "$1 percent");
-
-  // Email addresses / handles (user@domain.com)
-  out = out.replace(/\b([\w.+-]+)@([\w.-]+\.[A-Za-z]{2,})\b/g, (_m, u, d) => {
-    return `${u} at ${d.replace(/\./g, " dot ")}`;
-  });
-
-  // Math / code single operators (only in mathematical/variable context so normal hyphens stay fluent)
-  out = out
-    .replace(/(\w|\))\s*=\s*(\w|\(|-|\d)/g, "$1 equals $2")
-    .replace(/(\w|\))\s*\+\s*(\w|\(|\d)/g, "$1 plus $2")
-    .replace(/(\w|\))\s*\*\s*(\w|\(|\d)/g, "$1 times $2")
-    .replace(/(\d|\))\s*-\s*(\d|\()/g, "$1 minus $2")
-    .replace(/(^|\s)-(\d+)\b/g, "$1negative $2")
-    .replace(/(\d|\w)\s*<\s*(\d|\w)/g, "$1 less than $2")
-    .replace(/(\d|\w)\s*>\s*(\d|\w)/g, "$1 greater than $2");
-
-  // Braces, remaining brackets, slashes in technical tokens
-  out = out
-    .replace(/\{/g, " open brace, ")
-    .replace(/\}/g, ", close brace ")
-    .replace(/\[/g, " open bracket, ")
-    .replace(/\]/g, ", close bracket ");
-
-  if (mode === "verbose") {
+  // Only apply English technical substitutions if target language is English
+  if (isEnglish) {
+    // UI & Document Unicode bullets / status markers
     out = out
-      .replace(/;/g, ", semicolon. ")
-      .replace(/:/g, ", colon. ")
-      .replace(/\(/g, " open parenthesis, ")
-      .replace(/\)/g, ", close parenthesis ")
-      .replace(/"/g, " quote ")
-      .replace(/\?/g, ", question mark. ")
-      .replace(/!/g, ", exclamation mark. ")
-      .replace(/,(?!\s*(?:open|close|period|comma|semicolon|colon))/g, ", comma, ")
-      .replace(/\.(\s|$)/g, ", period. ");
+      .replace(/✓/g, " verified, ")
+      .replace(/✗/g, " incorrect, ")
+      .replace(/⚠/g, " warning, ")
+      .replace(/•/g, "\nBullet: ")
+      .replace(/=>/g, " fat arrow ")
+      .replace(/->|→/g, " arrow ");
+
+    // Multi-character comparison / logic operators in technical text
+    out = out
+      .replace(/!==/g, " strictly not equals ")
+      .replace(/===/g, " strictly equals ")
+      .replace(/!=/g, " not equals ")
+      .replace(/==/g, " double equals ")
+      .replace(/<=/g, " less than or equal to ")
+      .replace(/>=/g, " greater than or equal to ")
+      .replace(/&&/g, " logical AND ")
+      .replace(/\|\|/g, " logical OR ")
+      .replace(/\+\+/g, " increment ")
+      .replace(/--/g, " decrement ");
+
+    // Array / subscript indexing syntax like arr[i], matrix[0][1]
+    out = out.replace(/\b([A-Za-z_]\w*)\[([^\[\]]+)\]/g, (_m, name, idx) => {
+      return `${name} index ${idx.trim()}`;
+    });
+
+    // Dimensions like 2x3 or 6x6
+    out = out.replace(/\b(\d+)\s*[x×]\s*(\d+)\b/gi, "$1 by $2");
+
+    // Percentages
+    out = out.replace(/(\d+(?:\.\d+)?)\s*%/g, "$1 percent");
+
+    // Email addresses / handles (user@domain.com)
+    out = out.replace(/\b([\w.+-]+)@([\w.-]+\.[A-Za-z]{2,})\b/g, (_m, u, d) => {
+      return `${u} at ${d.replace(/\./g, " dot ")}`;
+    });
+
+    // Math / code single operators (only in mathematical/variable context so normal hyphens stay fluent)
+    out = out
+      .replace(/(\w|\))\s*=\s*(\w|\(|-|\d)/g, "$1 equals $2")
+      .replace(/(\w|\))\s*\+\s*(\w|\(|\d)/g, "$1 plus $2")
+      .replace(/(\w|\))\s*\*\s*(\w|\(|\d)/g, "$1 times $2")
+      .replace(/(\d|\))\s*-\s*(\d|\()/g, "$1 minus $2")
+      .replace(/(^|\s)-(\d+)\b/g, "$1negative $2")
+      .replace(/(\d|\w)\s*<\s*(\d|\w)/g, "$1 less than $2")
+      .replace(/(\d|\w)\s*>\s*(\d|\w)/g, "$1 greater than $2");
+
+    // Braces, remaining brackets, slashes in technical tokens
+    out = out
+      .replace(/\{/g, " open brace, ")
+      .replace(/\}/g, ", close brace ")
+      .replace(/\[/g, " open bracket, ")
+      .replace(/\]/g, ", close bracket ");
+
+    if (mode === "verbose") {
+      out = out
+        .replace(/;/g, ", semicolon. ")
+        .replace(/:/g, ", colon. ")
+        .replace(/\(/g, " open parenthesis, ")
+        .replace(/\)/g, ", close parenthesis ")
+        .replace(/"/g, " quote ")
+        .replace(/\?/g, ", question mark. ")
+        .replace(/!/g, ", exclamation mark. ")
+        .replace(/,(?!\s*(?:open|close|period|comma|semicolon|colon))/g, ", comma, ")
+        .replace(/\.(\s|$)/g, ", period. ");
+    } else {
+      // Smart mode: ensure colons/semicolons create audible breaks rather than swallowing pauses
+      out = out
+        .replace(/;\s*/g, "; ")
+        .replace(/:\s+/g, ": ")
+        .replace(/\(/g, ", ")
+        .replace(/\)/g, ", ");
+    }
   } else {
-    // Smart mode: ensure colons/semicolons create audible breaks rather than swallowing pauses
+    // For Indic languages (Kannada, Hindi, Tamil, Bengali):
+    // Preserve natural Indic punctuation pauses without corrupting native speech with English words!
     out = out
-      .replace(/;\s*/g, "; ")
-      .replace(/:\s+/g, ": ")
+      .replace(/✓/g, " ")
+      .replace(/✗/g, " ")
+      .replace(/•/g, "\n")
+      .replace(/;\s*/g, "। ")
+      .replace(/:\s+/g, " ")
       .replace(/\(/g, ", ")
       .replace(/\)/g, ", ");
   }
@@ -320,17 +337,47 @@ export function splitSpeechSegmentsWithPauses(
 }
 
 /**
- * Finds the most suitable voice for a given language code (e.g., 'kn-IN', 'hi-IN', 'ta-IN', 'bn-IN', 'en-US')
- * strictly prioritizing authentic native regional accents (Karnataka Kannada, native Hindi, etc.).
+ * Verifies if a given SpeechSynthesisVoice has a declared BCP-47 language tag
+ * that matches the target language.
+ * STRICT: A voice is NEVER considered native if its declared language tag belongs
+ * to another language (e.g., an English voice with 'en-US' or 'en-IN' is NEVER accepted
+ * for Kannada 'kn-IN', Hindi 'hi-IN', Tamil 'ta-IN', or Bengali 'bn-IN').
  */
-export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice | null {
-  const voices = getAvailableVoices();
+export function isVoiceDeclaredForLanguage(voice: SpeechSynthesisVoice, targetLang: string): boolean {
+  if (!voice || !voice.lang) return false;
+  const targetNorm = targetLang.toLowerCase().replace(/_/g, "-");
+  const targetPrimary = targetNorm.split("-")[0];
+  const voiceNorm = voice.lang.toLowerCase().replace(/_/g, "-");
+  const voicePrimary = voiceNorm.split("-")[0];
+
+  // Primary BCP-47 language code must match strictly
+  return voicePrimary === targetPrimary;
+}
+
+/**
+ * Finds the most suitable voice for a given language code (e.g., 'kn-IN', 'hi-IN', 'ta-IN', 'bn-IN', 'en-US')
+ * strictly matching against the voice's declared BCP-47 language.
+ * STRICT RULE: Never fall back to an English voice for a non-English language.
+ */
+export function findBestVoiceForLanguage(
+  langCode: string,
+  voiceList?: SpeechSynthesisVoice[]
+): SpeechSynthesisVoice | null {
+  const voices = voiceList !== undefined ? voiceList : getAvailableVoices();
   if (voices.length === 0) return null;
 
-  const target = langCode.toLowerCase().replace("_", "-");
-  const primary = target.split("-")[0];
+  const targetNorm = langCode.toLowerCase().replace(/_/g, "-");
+  const targetPrimary = targetNorm.split("-")[0];
 
-  // Specific keywords for authentic native regional accents
+  // 1. Filter strictly for voices whose declared BCP-47 language matches the target language
+  const candidateVoices = voices.filter((v) => isVoiceDeclaredForLanguage(v, langCode));
+
+  if (candidateVoices.length === 0) {
+    // STRICT: Never fall back to an English voice for a non-English language!
+    return null;
+  }
+
+  // 2. Score only candidate voices that are genuinely declared for this language
   const INDIC_KEYWORDS: Record<string, string[]> = {
     kn: ["gagan", "kannada", "ಕನ್ನಡ", "kavya", "sapna"],
     hi: ["swara", "madhur", "sapna", "hindi", "हिन्दी", "kalpana", "hemant"],
@@ -339,26 +386,26 @@ export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice
     en: ["neerja", "prabhat", "aria", "guy", "jenny", "natural", "online"],
   };
 
-  const keywords = INDIC_KEYWORDS[primary] || [primary];
+  const keywords = INDIC_KEYWORDS[targetPrimary] || [targetPrimary];
 
-  let bestVoice: SpeechSynthesisVoice | null = null;
+  let bestVoice = candidateVoices[0];
   let bestScore = -1;
 
-  for (const voice of voices) {
-    const vLang = (voice.lang || "").toLowerCase().replace("_", "-");
+  for (const voice of candidateVoices) {
+    const vLang = (voice.lang || "").toLowerCase().replace(/_/g, "-");
     const vName = (voice.name || "").toLowerCase();
     let score = 0;
 
-    // Exact regional language match (e.g. kn-IN, hi-IN)
-    if (vLang === target) {
+    // Exact regional language match (e.g. kn-IN === kn-in)
+    if (vLang === targetNorm) {
       score += 100;
-    } else if (vLang.startsWith(primary + "-")) {
+    } else if (vLang.startsWith(targetPrimary + "-")) {
       score += 80;
-    } else if (vLang === primary) {
+    } else if (vLang === targetPrimary) {
       score += 60;
     }
 
-    // Persona / native script keyword match
+    // Persona / native dialect keyword match
     for (const kw of keywords) {
       if (vName.includes(kw.toLowerCase())) {
         score += 55;
@@ -376,29 +423,13 @@ export function findBestVoiceForLanguage(langCode: string): SpeechSynthesisVoice
       score += 5;
     }
 
-    // Never pick an unrelated language voice for an Indic request
-    if (primary !== "en" && !vLang.startsWith(primary) && !keywords.some((k) => vName.includes(k.toLowerCase()))) {
-      continue;
-    }
-
     if (score > bestScore) {
       bestScore = score;
       bestVoice = voice;
     }
   }
 
-  if (bestVoice) {
-    return bestVoice;
-  }
-
-  // If no native voice exists for an Indic language, return null so modern browsers
-  // (Chrome, Edge) invoke their built-in speech engine for utterance.lang without forcing an English voice.
-  if (primary !== "en") {
-    return null;
-  }
-
-  const enVoice = voices.find((v) => v.lang.toLowerCase().startsWith("en"));
-  return enVoice || voices.find((v) => v.default) || voices[0] || null;
+  return bestVoice;
 }
 
 if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -410,6 +441,53 @@ if (typeof window !== "undefined" && "speechSynthesis" in window) {
   } catch {
     // ignore
   }
+}
+
+// ---------------------------------------------------------------------------
+// Voice Diagnostics & Audit Trail (Safe - never logs user document content)
+// ---------------------------------------------------------------------------
+export interface VoiceDiagnostic {
+  requestedLang: string;
+  detectedScriptLang: string | null;
+  effectiveLang: string;
+  provider: "browser-native" | "remote-tts" | "unavailable";
+  voiceName: string;
+  declaredVoiceLang: string;
+  isNativeVoiceMatched: boolean;
+  fallbackOccurred: boolean;
+  fallbackReason: string | null;
+  timestamp: number;
+}
+
+let lastVoiceDiagnostic: VoiceDiagnostic | null = null;
+const voiceDiagnosticHistory: VoiceDiagnostic[] = [];
+
+export function getLastVoiceDiagnostic(): VoiceDiagnostic | null {
+  return lastVoiceDiagnostic;
+}
+
+export function getVoiceDiagnosticHistory(): VoiceDiagnostic[] {
+  return [...voiceDiagnosticHistory];
+}
+
+export function recordVoiceDiagnostic(diag: Omit<VoiceDiagnostic, "timestamp">): VoiceDiagnostic {
+  const full: VoiceDiagnostic = {
+    ...diag,
+    timestamp: Date.now(),
+  };
+  lastVoiceDiagnostic = full;
+  voiceDiagnosticHistory.push(full);
+  if (voiceDiagnosticHistory.length > 50) {
+    voiceDiagnosticHistory.shift();
+  }
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("braillebridge-voice-diagnostic", { detail: full }));
+    } catch {
+      // ignore
+    }
+  }
+  return full;
 }
 
 let activeUtterance: SpeechSynthesisUtterance | null = null;
@@ -758,216 +836,389 @@ export async function translateTextIfNeeded(text: string, targetLang: string): P
   return normalizeTextForSpeechLang(text, shortLang);
 }
 
-function playViaRemoteTTS(
-  processedText: string,
-  langToUse: string,
-  options: TTSOptions,
-  sessionId: number
-): void {
-  if (typeof window === "undefined" || typeof fetch === "undefined") {
-    fallbackToBrowserTTS(processedText, langToUse, options, sessionId);
-    return;
+// ---------------------------------------------------------------------------
+// Unified Speech Playback State Machine (Spacebar Pause/Resume & Session Isolation)
+// ---------------------------------------------------------------------------
+export type SpeechPlaybackState = "idle" | "speaking" | "paused";
+
+interface ActiveSpeechSession {
+  id: number;
+  cleanText: string;
+  langToUse: string;
+  options: TTSOptions;
+  provider: "browser-native" | "remote-tts";
+  segments: SpeechSegment[];
+  currentIndex: number;
+  state: SpeechPlaybackState;
+  activeUtterance: SpeechSynthesisUtterance | null;
+  activeAudio: HTMLAudioElement | null;
+  pauseTimer: any | null;
+  pauseTimerStartedAt: number;
+  pauseTimeRemainingMs: number;
+}
+
+let activeSession: ActiveSpeechSession | null = null;
+
+export function getPlaybackState(): SpeechPlaybackState {
+  if (!activeSession) return "idle";
+  return activeSession.state;
+}
+
+export function isSpeaking(): boolean {
+  return getPlaybackState() === "speaking";
+}
+
+export function isSpeechPaused(): boolean {
+  return getPlaybackState() === "paused";
+}
+
+export function pauseSpeaking(): boolean {
+  if (!activeSession || activeSession.state !== "speaking") {
+    return false;
   }
 
-  const primaryLang = langToUse.split("-")[0].toLowerCase();
-  const segments = splitSpeechSegmentsWithPauses(processedText, 140);
-  let idx = 0;
+  activeSession.state = "paused";
 
-  const advanceAfterSegment = (seg: SpeechSegment) => {
-    if (sessionId !== ttsSessionId) return;
-    idx++;
-    if (idx >= segments.length) {
-      activeAudioElement = null;
-      activeBufferSource = null;
-      revokeActiveAudioUrl();
-      options.onEnd?.();
-    } else {
-      activePauseTimer = setTimeout(playNextSegment, seg.pauseAfterMs);
-    }
-  };
+  // If waiting in pause interval between segments, freeze timer
+  if (activeSession.pauseTimer) {
+    clearTimeout(activeSession.pauseTimer);
+    activeSession.pauseTimer = null;
+    const elapsed = Date.now() - activeSession.pauseTimerStartedAt;
+    activeSession.pauseTimeRemainingMs = Math.max(0, activeSession.pauseTimeRemainingMs - elapsed);
+  }
 
-  const playNextSegment = async () => {
-    if (sessionId !== ttsSessionId) return;
-    if (idx >= segments.length) {
-      activeAudioElement = null;
-      activeBufferSource = null;
-      revokeActiveAudioUrl();
-      options.onEnd?.();
-      return;
-    }
-
-    const seg = segments[idx];
-    const url = `/api/tts?text=${encodeURIComponent(seg.text)}&lang=${encodeURIComponent(primaryLang)}`;
-
+  // Pause HTMLAudioElement if active
+  if (activeSession.activeAudio && !activeSession.activeAudio.paused) {
     try {
-      const res = await fetch(url);
-      if (sessionId !== ttsSessionId) return;
-      if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
-      const blob = await res.blob();
-      if (sessionId !== ttsSessionId) return;
-      if (!blob || blob.size < 100) throw new Error("Empty TTS audio");
-
-      if (typeof Audio !== "undefined") {
-        const audio = sharedAudioElement || new Audio();
-        sharedAudioElement = audio;
-        revokeActiveAudioUrl();
-        activeAudioUrl = URL.createObjectURL(blob);
-        audio.src = activeAudioUrl;
-        audio.playbackRate = options.rate ?? 1.0;
-        activeAudioElement = audio;
-
-        audio.onended = () => {
-          if (sessionId !== ttsSessionId) return;
-          advanceAfterSegment(seg);
-        };
-        audio.onerror = () => {
-          activeAudioElement = null;
-          revokeActiveAudioUrl();
-          if (sessionId === ttsSessionId) {
-            fallbackToBrowserTTS(
-              segments.slice(idx).map((s) => s.text).join(" "),
-              langToUse,
-              options,
-              sessionId
-            );
-          }
-        };
-
-        try {
-          if (idx === 0) options.onStart?.();
-          await audio.play();
-          return;
-        } catch {
-          activeAudioElement = null;
-          revokeActiveAudioUrl();
-          const ctx = getAudioContext();
-          if (ctx) {
-            const arrayBuf = await blob.arrayBuffer();
-            if (sessionId !== ttsSessionId) return;
-            const decoded = await ctx.decodeAudioData(arrayBuf.slice(0));
-            if (sessionId !== ttsSessionId) return;
-            const source = ctx.createBufferSource();
-            source.buffer = decoded;
-            source.playbackRate.value = options.rate ?? 1.0;
-            source.connect(ctx.destination);
-            activeBufferSource = source;
-            source.onended = () => {
-              if (activeBufferSource === source) activeBufferSource = null;
-              if (sessionId !== ttsSessionId) return;
-              advanceAfterSegment(seg);
-            };
-            if (idx === 0) options.onStart?.();
-            source.start(0);
-            return;
-          }
-        }
-      }
+      activeSession.activeAudio.pause();
     } catch {
-      // Fallback
+      // ignore
     }
+  }
 
-    if (sessionId === ttsSessionId) {
-      fallbackToBrowserTTS(
-        segments.slice(idx).map((s) => s.text).join(" "),
-        langToUse,
-        options,
-        sessionId
-      );
+  // Pause Web Speech utterance if active
+  if (isTTSSupported() && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+    try {
+      window.speechSynthesis.pause();
+    } catch {
+      // ignore
     }
-  };
+  }
 
-  playNextSegment();
+  return true;
 }
 
-function fallbackToBrowserTTS(
-  cleanText: string,
-  langToUse: string,
-  options: TTSOptions,
-  sessionId: number
-): void {
-  if (!isTTSSupported()) {
-    playViaRemoteTTS(cleanText, langToUse, options, sessionId);
+export function resumeSpeaking(): boolean {
+  if (!activeSession || activeSession.state !== "paused") {
+    return false;
+  }
+
+  activeSession.state = "speaking";
+
+  if (activeSession.provider === "browser-native") {
+    if (isTTSSupported() && window.speechSynthesis.paused) {
+      try {
+        window.speechSynthesis.resume();
+      } catch {
+        // ignore
+      }
+    }
+    // If browser speech was lost or dropped while paused (Chromium pause bug), replay from current segment
+    if (
+      isTTSSupported() &&
+      !window.speechSynthesis.speaking &&
+      !window.speechSynthesis.pending &&
+      activeSession.pauseTimeRemainingMs === 0
+    ) {
+      playBrowserSessionSegment(activeSession, activeSession.currentIndex);
+      return true;
+    }
+  }
+
+  if (activeSession.provider === "remote-tts") {
+    if (activeSession.activeAudio && activeSession.activeAudio.paused) {
+      activeSession.activeAudio.play().catch(() => {});
+    }
+  }
+
+  // Resume paused inter-segment timer if any
+  if (activeSession.pauseTimeRemainingMs > 0) {
+    const remaining = activeSession.pauseTimeRemainingMs;
+    activeSession.pauseTimeRemainingMs = 0;
+    activeSession.pauseTimerStartedAt = Date.now();
+    const nextIdx = activeSession.currentIndex + 1;
+    activeSession.pauseTimer = setTimeout(() => {
+      if (!activeSession || activeSession.state !== "speaking") return;
+      if (activeSession.provider === "browser-native") {
+        playBrowserSessionSegment(activeSession, nextIdx);
+      } else {
+        playRemoteSessionSegment(activeSession, nextIdx);
+      }
+    }, remaining);
+  }
+
+  return true;
+}
+
+export function stopSpeaking(): void {
+  ttsSessionId++;
+
+  if (activePauseTimer) {
+    clearTimeout(activePauseTimer);
+    activePauseTimer = null;
+  }
+
+  if (activeSession) {
+    if (activeSession.pauseTimer) {
+      clearTimeout(activeSession.pauseTimer);
+      activeSession.pauseTimer = null;
+    }
+    if (activeSession.activeAudio) {
+      try {
+        activeSession.activeAudio.pause();
+        activeSession.activeAudio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+      activeSession.activeAudio = null;
+    }
+    activeSession.state = "idle";
+    activeSession = null;
+  }
+
+  if (activeBufferSource) {
+    try {
+      activeBufferSource.stop();
+      activeBufferSource.disconnect();
+    } catch {
+      // ignore
+    }
+    activeBufferSource = null;
+  }
+
+  if (activeAudioElement) {
+    try {
+      activeAudioElement.pause();
+      activeAudioElement.currentTime = 0;
+    } catch {
+      // ignore
+    }
+    activeAudioElement = null;
+  }
+
+  revokeActiveAudioUrl();
+
+  if (isTTSSupported()) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch {
+      // ignore
+    }
+    activeUtterance = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Remote Indic Neural Audio Streaming
+// ---------------------------------------------------------------------------
+function playRemoteSessionSegment(session: ActiveSpeechSession, idx: number): void {
+  if (session.id !== ttsSessionId || (session.state as SpeechPlaybackState) === "idle") return;
+
+  if (idx >= session.segments.length) {
+    session.state = "idle";
+    session.options.onEnd?.();
+    if (activeSession === session) activeSession = null;
     return;
   }
 
-  const neededCancel = window.speechSynthesis.speaking || window.speechSynthesis.pending;
-  if (neededCancel) {
-    window.speechSynthesis.cancel();
-  }
-  const segments = splitSpeechSegmentsWithPauses(cleanText, 240);
-  let idx = 0;
+  session.currentIndex = idx;
+  const seg = session.segments[idx];
+  const primaryLang = session.langToUse.split("-")[0].toLowerCase();
+  const url = `/api/tts?text=${encodeURIComponent(seg.text)}&lang=${encodeURIComponent(primaryLang)}`;
 
-  const speakNextSegment = () => {
-    if (sessionId !== ttsSessionId) return;
-    if (idx >= segments.length) {
-      activeUtterance = null;
-      options.onEnd?.();
-      return;
-    }
+  fetch(url)
+    .then(async (res) => {
+      if (session.id !== ttsSessionId || (session.state as SpeechPlaybackState) === "idle") return;
+      if (!res.ok) throw new Error(`Remote TTS HTTP ${res.status}`);
+      const blob = await res.blob();
+      if (session.id !== ttsSessionId || (session.state as SpeechPlaybackState) === "idle") return;
+      if (!blob || blob.size < 100) throw new Error("Empty TTS audio response");
 
-    const seg = segments[idx];
-    const utterance = new SpeechSynthesisUtterance(seg.text);
-    utterance.rate = options.rate ?? 1.0;
-    utterance.pitch = options.pitch ?? 1.0;
-    utterance.volume = options.volume ?? 1.0;
-    utterance.lang = langToUse;
+      const audio = sharedAudioElement || new Audio();
+      sharedAudioElement = audio;
+      revokeActiveAudioUrl();
+      activeAudioUrl = URL.createObjectURL(blob);
+      audio.src = activeAudioUrl;
+      audio.playbackRate = session.options.rate ?? 1.0;
+      session.activeAudio = audio;
+      activeAudioElement = audio;
 
-    if (options.voiceName) {
-      const voices = window.speechSynthesis.getVoices();
-      const matched = voices.find((v) => v.name === options.voiceName);
-      if (matched) utterance.voice = matched;
-    } else {
-      const bestVoice = findBestVoiceForLanguage(langToUse);
-      if (bestVoice) {
-        utterance.voice = bestVoice;
+      audio.onended = () => {
+        if (session.id !== ttsSessionId || session.state === "idle") return;
+        session.activeAudio = null;
+        if (session.state === "paused") return;
+
+        const nextIdx = idx + 1;
+        if (nextIdx >= session.segments.length) {
+          session.state = "idle";
+          session.options.onEnd?.();
+          if (activeSession === session) activeSession = null;
+        } else {
+          session.pauseTimerStartedAt = Date.now();
+          session.pauseTimeRemainingMs = seg.pauseAfterMs;
+          session.pauseTimer = setTimeout(() => {
+            session.pauseTimer = null;
+            session.pauseTimeRemainingMs = 0;
+            playRemoteSessionSegment(session, nextIdx);
+          }, seg.pauseAfterMs);
+        }
+      };
+
+      audio.onerror = () => {
+        session.activeAudio = null;
+        revokeActiveAudioUrl();
+        if (session.id !== ttsSessionId || session.state === "idle") return;
+        // STRICT: Never fall back to an English voice for non-English languages!
+        recordVoiceDiagnostic({
+          requestedLang: session.langToUse,
+          detectedScriptLang: detectScriptLanguage(session.cleanText),
+          effectiveLang: session.langToUse,
+          provider: "unavailable",
+          voiceName: "None",
+          declaredVoiceLang: "None",
+          isNativeVoiceMatched: false,
+          fallbackOccurred: true,
+          fallbackReason: "Remote TTS audio playback error; native voice unavailable",
+        });
+        session.state = "idle";
+        session.options.onError?.(
+          `Native ${getLanguageDisplayName(session.langToUse)} audio playback failed. Please verify your audio output or connection.`
+        );
+        if (activeSession === session) activeSession = null;
+      };
+
+      if (idx === 0) session.options.onStart?.();
+      if (session.state === "speaking") {
+        await audio.play();
       }
-    }
-
-    utterance.onstart = () => {
-      activeUtterance = utterance;
-      if (idx === 0) options.onStart?.();
-    };
-
-    utterance.onend = () => {
-      activeUtterance = null;
-      if (sessionId !== ttsSessionId) return;
-      idx++;
-      if (idx >= segments.length) {
-        options.onEnd?.();
-      } else {
-        activePauseTimer = setTimeout(speakNextSegment, seg.pauseAfterMs);
-      }
-    };
-
-    utterance.onerror = (e) => {
-      activeUtterance = null;
-      if (e.error !== "canceled" && e.error !== "interrupted") {
-        options.onError?.(`Speech error: ${e.error}`);
-        // Fall back to remote audio streaming if browser speech encounters an error
-        playViaRemoteTTS(seg.text, langToUse, options, sessionId);
-      } else {
-        options.onEnd?.();
-      }
-    };
-
-    activeUtterance = utterance;
-    window.speechSynthesis.speak(utterance);
-  };
-
-  if (neededCancel) {
-    activePauseTimer = setTimeout(speakNextSegment, 35);
-  } else {
-    speakNextSegment();
-  }
+    })
+    .catch((err) => {
+      if (session.id !== ttsSessionId || session.state === "idle") return;
+      // STRICT: Never fall back to an English voice for non-English languages!
+      recordVoiceDiagnostic({
+        requestedLang: session.langToUse,
+        detectedScriptLang: detectScriptLanguage(session.cleanText),
+        effectiveLang: session.langToUse,
+        provider: "unavailable",
+        voiceName: "None",
+        declaredVoiceLang: "None",
+        isNativeVoiceMatched: false,
+        fallbackOccurred: true,
+        fallbackReason: `Remote TTS fetch failed: ${err?.message || "network error"}`,
+      });
+      session.state = "idle";
+      session.options.onError?.(
+        `Native ${getLanguageDisplayName(session.langToUse)} speech is unavailable. Please install a native voice or check your connection.`
+      );
+      if (activeSession === session) activeSession = null;
+    });
 }
 
+// ---------------------------------------------------------------------------
+// Browser Native Speech Playback (Guaranteed Declared Native Voice)
+// ---------------------------------------------------------------------------
+function playBrowserSessionSegment(session: ActiveSpeechSession, idx: number): void {
+  if (session.id !== ttsSessionId || session.state === "idle") return;
+
+  if (idx >= session.segments.length) {
+    session.state = "idle";
+    session.options.onEnd?.();
+    if (activeSession === session) activeSession = null;
+    return;
+  }
+
+  session.currentIndex = idx;
+  const seg = session.segments[idx];
+  const utterance = new SpeechSynthesisUtterance(seg.text);
+  utterance.rate = session.options.rate ?? 1.0;
+  utterance.pitch = session.options.pitch ?? 1.0;
+  utterance.volume = session.options.volume ?? 1.0;
+  utterance.lang = session.langToUse;
+
+  // STRICT VOICE ASSIGNMENT:
+  // Must use verified declared native voice
+  const nativeVoice = findBestVoiceForLanguage(session.langToUse);
+  if (nativeVoice) {
+    utterance.voice = nativeVoice;
+  }
+
+  utterance.onstart = () => {
+    activeUtterance = utterance;
+    session.activeUtterance = utterance;
+    if (idx === 0) session.options.onStart?.();
+  };
+
+  utterance.onend = () => {
+    activeUtterance = null;
+    session.activeUtterance = null;
+    if (session.id !== ttsSessionId || session.state === "idle") return;
+    if (session.state === "paused") return;
+
+    const nextIdx = idx + 1;
+    if (nextIdx >= session.segments.length) {
+      session.state = "idle";
+      session.options.onEnd?.();
+      if (activeSession === session) activeSession = null;
+    } else {
+      session.pauseTimerStartedAt = Date.now();
+      session.pauseTimeRemainingMs = seg.pauseAfterMs;
+      session.pauseTimer = setTimeout(() => {
+        session.pauseTimer = null;
+        session.pauseTimeRemainingMs = 0;
+        playBrowserSessionSegment(session, nextIdx);
+      }, seg.pauseAfterMs);
+    }
+  };
+
+  utterance.onerror = (e) => {
+    activeUtterance = null;
+    session.activeUtterance = null;
+    if (e.error !== "canceled" && e.error !== "interrupted") {
+      session.options.onError?.(`Speech error: ${e.error}`);
+    }
+    if (session.id === ttsSessionId) {
+      session.state = "idle";
+      if (activeSession === session) activeSession = null;
+    }
+  };
+
+  activeUtterance = utterance;
+  session.activeUtterance = utterance;
+  window.speechSynthesis.speak(utterance);
+}
+
+function getLanguageDisplayName(langCode: string): string {
+  const primary = (langCode || "en").split("-")[0].toLowerCase();
+  const map: Record<string, string> = {
+    kn: "Kannada (ಕನ್ನಡ)",
+    hi: "Hindi (हिन्दी)",
+    ta: "Tamil (தமிழ்)",
+    bn: "Bengali (বাংলা)",
+    en: "English",
+  };
+  return map[primary] || langCode;
+}
+
+// ---------------------------------------------------------------------------
+// Main Entrypoint: speakText
+// ---------------------------------------------------------------------------
 export function speakText(text: string, options: TTSOptions = {}): void {
   const rawTrimmed = text.trim();
   if (!rawTrimmed) return;
 
   stopSpeaking();
   prepareAudioForSpeech();
-  const currentSession = ++ttsSessionId;
+  const currentSessionId = ++ttsSessionId;
 
   const rawLang = options.lang || getActiveLanguage();
   const detectedLang = detectScriptLanguage(rawTrimmed);
@@ -980,126 +1231,113 @@ export function speakText(text: string, options: TTSOptions = {}): void {
   lastSpokenText = rawTrimmed;
   lastSpokenOptions = { ...options, lang: langToUse };
 
-  const executePlayback = (finalText: string) => {
-    if (currentSession !== ttsSessionId) return;
+  const startPlaybackSession = (finalText: string) => {
+    if (currentSessionId !== ttsSessionId) return;
 
     const rawOrFormatted = options.raw
       ? finalText
-      : formatTextForSpeech(finalText, options.punctuationMode || getPunctuationMode());
+      : formatTextForSpeech(finalText, options.punctuationMode || getPunctuationMode(), langToUse);
 
     const processedText = normalizeTextForSpeechLang(rawOrFormatted, primaryLang);
+    const segments = splitSpeechSegmentsWithPauses(processedText, 200);
 
-    // STRICT NATIVE VOICE PRIORITY:
-    // Always prefer browser native speech synthesis with Karnataka Kannada (Microsoft Gagan / Google ಕನ್ನಡ)
-    // or native Hindi (Microsoft Swara / Madhur / Google हिन्दी) voice.
-    if (isTTSSupported()) {
-      const nativeVoice = findBestVoiceForLanguage(langToUse);
-      if (nativeVoice || primaryLang === "en") {
-        fallbackToBrowserTTS(processedText, langToUse, options, currentSession);
-        return;
-      }
-      try {
-        fallbackToBrowserTTS(processedText, langToUse, options, currentSession);
-        return;
-      } catch {
-        // Fall back to remote audio streaming
-      }
+    // VOICE SELECTION & STRICT DECLARATION CHECK
+    const nativeVoice = isTTSSupported() ? findBestVoiceForLanguage(langToUse) : null;
+    const isNativeBrowserAvailable =
+      Boolean(nativeVoice && isVoiceDeclaredForLanguage(nativeVoice, langToUse)) ||
+      (primaryLang === "en" && isTTSSupported());
+
+    if (isNativeBrowserAvailable && nativeVoice) {
+      // 1. Browser Native Playback using verified native voice
+      recordVoiceDiagnostic({
+        requestedLang: langToUse,
+        detectedScriptLang: detectedLang,
+        effectiveLang: langToUse,
+        provider: "browser-native",
+        voiceName: nativeVoice.name,
+        declaredVoiceLang: nativeVoice.lang,
+        isNativeVoiceMatched: true,
+        fallbackOccurred: false,
+        fallbackReason: null,
+      });
+
+      const session: ActiveSpeechSession = {
+        id: currentSessionId,
+        cleanText: processedText,
+        langToUse,
+        options,
+        provider: "browser-native",
+        segments,
+        currentIndex: 0,
+        state: "speaking",
+        activeUtterance: null,
+        activeAudio: null,
+        pauseTimer: null,
+        pauseTimerStartedAt: 0,
+        pauseTimeRemainingMs: 0,
+      };
+      activeSession = session;
+      playBrowserSessionSegment(session, 0);
+      return;
     }
 
-    playViaRemoteTTS(processedText, langToUse, options, currentSession);
+    // 2. Remote Verified Indic TTS Playback (Strict: never fall back to English voice!)
+    recordVoiceDiagnostic({
+      requestedLang: langToUse,
+      detectedScriptLang: detectedLang,
+      effectiveLang: langToUse,
+      provider: "remote-tts",
+      voiceName: `Google Indic Neural TTS (${primaryLang})`,
+      declaredVoiceLang: langToUse,
+      isNativeVoiceMatched: true,
+      fallbackOccurred: true,
+      fallbackReason: `No declared native voice for ${langToUse} installed in browser; using verified remote Indic TTS provider`,
+    });
+
+    const session: ActiveSpeechSession = {
+      id: currentSessionId,
+      cleanText: processedText,
+      langToUse,
+      options,
+      provider: "remote-tts",
+      segments,
+      currentIndex: 0,
+      state: "speaking",
+      activeUtterance: null,
+      activeAudio: null,
+      pauseTimer: null,
+      pauseTimerStartedAt: 0,
+      pauseTimeRemainingMs: 0,
+    };
+    activeSession = session;
+    playRemoteSessionSegment(session, 0);
   };
 
-  // FULL WEBSITE READ-ALOUD IN SELECTED LANGUAGE:
-  // When active language is an Indic language (Kannada, Hindi, Tamil, Bengali) and text contains English/Latin terms,
-  // automatically translate the text into the selected language so read-aloud works in that language across the whole website!
+  // Auto-translate English UI terms to active Indic language if required
   if (primaryLang !== "en" && !detectedLang && /[a-zA-Z]{2,}/.test(rawTrimmed)) {
     const quick = lookupQuickIndicTranslation(rawTrimmed, primaryLang);
     if (quick) {
-      executePlayback(quick);
+      startPlaybackSession(quick);
       return;
     }
 
     const cacheKey = `${primaryLang}:${rawTrimmed}`;
     if (clientTranslationCache.has(cacheKey)) {
-      executePlayback(clientTranslationCache.get(cacheKey)!);
+      startPlaybackSession(clientTranslationCache.get(cacheKey)!);
       return;
     }
 
     translateTextIfNeeded(rawTrimmed, langToUse)
       .then((translated) => {
-        executePlayback(translated || rawTrimmed);
+        startPlaybackSession(translated || rawTrimmed);
       })
       .catch(() => {
-        executePlayback(rawTrimmed);
+        startPlaybackSession(rawTrimmed);
       });
     return;
   }
 
-  executePlayback(rawTrimmed);
-}
-
-export function pauseSpeaking(): void {
-  if (activeAudioElement && !activeAudioElement.paused) {
-    activeAudioElement.pause();
-  }
-  if (isTTSSupported() && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-    window.speechSynthesis.pause();
-  }
-}
-
-export function resumeSpeaking(): void {
-  if (activeAudioElement && activeAudioElement.paused) {
-    activeAudioElement.play().catch(() => {});
-  }
-  if (isTTSSupported() && window.speechSynthesis.paused) {
-    window.speechSynthesis.resume();
-  }
-}
-
-export function isSpeechPaused(): boolean {
-  return (
-    Boolean(activeAudioElement?.paused && activeAudioElement?.currentTime > 0) ||
-    (isTTSSupported() && window.speechSynthesis.paused)
-  );
-}
-
-export function stopSpeaking(): void {
-  ttsSessionId++;
-  if (activePauseTimer) {
-    clearTimeout(activePauseTimer);
-    activePauseTimer = null;
-  }
-  if (activeBufferSource) {
-    try {
-      activeBufferSource.stop();
-      activeBufferSource.disconnect();
-    } catch {
-      // ignore
-    }
-    activeBufferSource = null;
-  }
-  if (activeAudioElement) {
-    try {
-      activeAudioElement.pause();
-      activeAudioElement.currentTime = 0;
-      activeAudioElement = null;
-    } catch {
-      // ignore
-    }
-  }
-  revokeActiveAudioUrl();
-  if (isTTSSupported()) {
-    window.speechSynthesis.cancel();
-    activeUtterance = null;
-  }
-}
-
-export function isSpeaking(): boolean {
-  return (
-    Boolean(activeBufferSource) ||
-    Boolean(activeAudioElement && !activeAudioElement.paused) ||
-    (isTTSSupported() && (window.speechSynthesis.speaking || Boolean(activeUtterance)))
-  );
+  startPlaybackSession(rawTrimmed);
 }
 
 // ---------------------------------------------------------------------------

@@ -17,6 +17,9 @@ import { Footer } from "./components/Footer";
 import {
   stopSpeaking,
   isSpeaking,
+  getPlaybackState,
+  pauseSpeaking,
+  resumeSpeaking,
   getActiveLanguage,
   setActiveLanguage,
 } from "./services/speechService";
@@ -175,19 +178,27 @@ export default function App() {
       if (e.key === "Escape") {
         stopSpeaking();
       } else if (e.key === " " && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        if (e.repeat) {
+          e.preventDefault();
+          return;
+        }
         const active = document.activeElement as HTMLElement | null;
         const tag = active?.tagName || "";
         const role = active?.getAttribute("role") || "";
         const isInteractiveControl =
           ["INPUT", "TEXTAREA", "SELECT", "OPTION", "BUTTON", "A"].includes(tag) ||
           Boolean(active?.isContentEditable) ||
+          Boolean(active?.closest?.("input, textarea, select, button, a, [role='button'], [role='tab'], [role='menuitem'], [data-perkins-active='true']")) ||
           ["button", "tab", "menuitem", "switch", "checkbox", "radio"].includes(role);
         const perkinsActive = Boolean(document.querySelector('[data-perkins-active="true"]'));
 
         if (!isInteractiveControl && !perkinsActive) {
           e.preventDefault();
-          if (isSpeaking()) {
-            stopSpeaking();
+          const state = getPlaybackState();
+          if (state === "speaking") {
+            pauseSpeaking();
+          } else if (state === "paused") {
+            resumeSpeaking();
           } else {
             window.dispatchEvent(new CustomEvent("braillebridge-space-read"));
           }

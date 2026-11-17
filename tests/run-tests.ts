@@ -671,6 +671,15 @@ import {
   splitSpeechSegmentsWithPauses,
   setActiveLanguage,
   normalizeTextForSpeechLang,
+  isVoiceDeclaredForLanguage,
+  findBestVoiceForLanguage,
+  getPlaybackState,
+  pauseSpeaking,
+  resumeSpeaking,
+  stopSpeaking,
+  recordVoiceDiagnostic,
+  getLastVoiceDiagnostic,
+  getVoiceDiagnosticHistory,
 } from "../src/services/speechService";
 import { setActiveDocumentContext } from "../src/services/appContextService";
 import { askNotesQuestion, explainDifficultConcept } from "../src/services/studyService";
@@ -916,9 +925,158 @@ assert(
 );
 
 // ---------------------------------------------------------------------------
-// 13. One-Time Student Authentication & Password Recovery Suite
+// 13. Strict Native Speech Voice Selection, Spacebar State Machine & Safe Diagnostics Suite
 // ---------------------------------------------------------------------------
-console.log("\n13. Student Authentication, Recovery & Session Security Suite");
+console.log("\n13. Strict Native Speech Voice Selection, Spacebar State Machine & Safe Diagnostics Suite");
+
+const mockVoices = [
+  { name: "Microsoft David Desktop - English (United States)", lang: "en-US", default: true, localService: true, voiceURI: "david" } as SpeechSynthesisVoice,
+  { name: "Google US English", lang: "en-US", default: false, localService: false, voiceURI: "google-en-us" } as SpeechSynthesisVoice,
+  { name: "Microsoft Heera - English (India)", lang: "en-IN", default: false, localService: true, voiceURI: "heera" } as SpeechSynthesisVoice,
+  { name: "Kannada Fake Display Name", lang: "en-US", default: false, localService: true, voiceURI: "fake-kn" } as SpeechSynthesisVoice,
+  { name: "Hindi Fake Display Name", lang: "en-GB", default: false, localService: true, voiceURI: "fake-hi" } as SpeechSynthesisVoice,
+  { name: "Microsoft Gagan - Kannada (India)", lang: "kn-IN", default: false, localService: true, voiceURI: "gagan" } as SpeechSynthesisVoice,
+  { name: "Microsoft Swara - Hindi (India)", lang: "hi-IN", default: false, localService: true, voiceURI: "swara" } as SpeechSynthesisVoice,
+  { name: "Microsoft Pallavi - Tamil (India)", lang: "ta-IN", default: false, localService: true, voiceURI: "pallavi" } as SpeechSynthesisVoice,
+  { name: "Microsoft Tapan - Bengali (India)", lang: "bn-IN", default: false, localService: true, voiceURI: "tapan" } as SpeechSynthesisVoice,
+];
+
+const englishOnlyVoices = [mockVoices[0], mockVoices[1], mockVoices[2], mockVoices[3], mockVoices[4]];
+
+// 1. Kannada never selects an English voice
+assert(
+  !isVoiceDeclaredForLanguage(mockVoices[0], "kn-IN") &&
+    !isVoiceDeclaredForLanguage(mockVoices[2], "kn-IN") &&
+    findBestVoiceForLanguage("kn-IN", englishOnlyVoices) === null,
+  "Kannada strictly rejects English voices (en-US, en-IN) and returns null when no native voice is present"
+);
+
+// 2. Hindi never selects an English voice
+assert(
+  !isVoiceDeclaredForLanguage(mockVoices[0], "hi-IN") &&
+    !isVoiceDeclaredForLanguage(mockVoices[2], "hi-IN") &&
+    findBestVoiceForLanguage("hi-IN", englishOnlyVoices) === null,
+  "Hindi strictly rejects English voices (en-US, en-IN) and returns null when no native voice is present"
+);
+
+// 3. Tamil never selects an English voice
+assert(
+  !isVoiceDeclaredForLanguage(mockVoices[0], "ta-IN") &&
+    !isVoiceDeclaredForLanguage(mockVoices[2], "ta-IN") &&
+    findBestVoiceForLanguage("ta-IN", englishOnlyVoices) === null,
+  "Tamil strictly rejects English voices (en-US, en-IN) and returns null when no native voice is present"
+);
+
+// 4. Bengali never selects an English voice
+assert(
+  !isVoiceDeclaredForLanguage(mockVoices[0], "bn-IN") &&
+    !isVoiceDeclaredForLanguage(mockVoices[2], "bn-IN") &&
+    findBestVoiceForLanguage("bn-IN", englishOnlyVoices) === null,
+  "Bengali strictly rejects English voices (en-US, en-IN) and returns null when no native voice is present"
+);
+
+// 5. Anti-spoofing: Display name containing native words does NOT bypass BCP-47 check
+assert(
+  !isVoiceDeclaredForLanguage(mockVoices[3], "kn-IN") &&
+    !isVoiceDeclaredForLanguage(mockVoices[4], "hi-IN"),
+  "Voices with deceptive display names ('Kannada Fake Display Name') are rejected if declared lang is English"
+);
+
+// 6. Native voice selection when available
+const knSelected = findBestVoiceForLanguage("kn-IN", mockVoices);
+assert(
+  knSelected !== null && knSelected.lang === "kn-IN" && knSelected.name.includes("Gagan"),
+  "Kannada successfully selects genuine declared kn-IN voice when available"
+);
+
+const hiSelected = findBestVoiceForLanguage("hi-IN", mockVoices);
+assert(
+  hiSelected !== null && hiSelected.lang === "hi-IN" && hiSelected.name.includes("Swara"),
+  "Hindi successfully selects genuine declared hi-IN voice when available"
+);
+
+const taSelected = findBestVoiceForLanguage("ta-IN", mockVoices);
+assert(
+  taSelected !== null && taSelected.lang === "ta-IN" && taSelected.name.includes("Pallavi"),
+  "Tamil successfully selects genuine declared ta-IN voice when available"
+);
+
+const bnSelected = findBestVoiceForLanguage("bn-IN", mockVoices);
+assert(
+  bnSelected !== null && bnSelected.lang === "bn-IN" && bnSelected.name.includes("Tapan"),
+  "Bengali successfully selects genuine declared bn-IN voice when available"
+);
+
+// 7. Indic text & script preservation (no English phonetic pollution)
+const rawKannadaSample = "ನಮಸ್ಕಾರ, ಬ್ರೈಲ್ ಬ್ರಿಡ್ಜ್ ಗೆ ಸುಸ್ವಾಗತ. 10 + 5 = 15.";
+const formattedKnSpeech = formatTextForSpeech(rawKannadaSample, "smart", "kn-IN");
+assert(
+  !formattedKnSpeech.includes("equals") &&
+    !formattedKnSpeech.includes("plus") &&
+    !formattedKnSpeech.includes("period"),
+  "formatTextForSpeech with targetLang='kn-IN' preserves native Indic script without injecting English words"
+);
+
+const rawHindiSample = "नमस्ते, ब्रेल ब्रिज में आपका स्वागत है। 2 + 2 = 4.";
+const formattedHiSpeech = formatTextForSpeech(rawHindiSample, "smart", "hi-IN");
+assert(
+  !formattedHiSpeech.includes("equals") &&
+    !formattedHiSpeech.includes("plus") &&
+    !formattedHiSpeech.includes("period"),
+  "formatTextForSpeech with targetLang='hi-IN' preserves native Indic script without injecting English words"
+);
+
+// 8. Spacebar Playback State Machine
+assert(
+  getPlaybackState() === "idle",
+  "Playback state machine starts in 'idle' state"
+);
+assert(
+  pauseSpeaking() === false,
+  "Calling pauseSpeaking() while idle safely returns false"
+);
+assert(
+  resumeSpeaking() === false,
+  "Calling resumeSpeaking() while idle safely returns false"
+);
+stopSpeaking();
+assert(
+  getPlaybackState() === "idle",
+  "Calling stopSpeaking() cleanly preserves or resets state to 'idle'"
+);
+
+// 9. Safe Voice Diagnostics
+recordVoiceDiagnostic({
+  requestedLang: "kn-IN",
+  detectedScriptLang: "kn",
+  effectiveLang: "kn-IN",
+  provider: "remote-tts",
+  voiceName: "Google kn-IN Indic Neural",
+  declaredVoiceLang: "kn-IN",
+  isNativeVoiceMatched: true,
+  fallbackOccurred: false,
+  fallbackReason: null,
+});
+const lastDiag = getLastVoiceDiagnostic();
+assert(
+  lastDiag !== null &&
+    lastDiag.requestedLang === "kn-IN" &&
+    lastDiag.provider === "remote-tts" &&
+    lastDiag.isNativeVoiceMatched === true &&
+    !("text" in (lastDiag as any)),
+  "Voice diagnostics records provider, requested/declared lang, native match success, and contains NO private text"
+);
+
+const diagHistory = getVoiceDiagnosticHistory();
+assert(
+  Array.isArray(diagHistory) && diagHistory.length >= 1,
+  "Voice diagnostic history maintains an immutable audit log of playback decisions"
+);
+
+// ---------------------------------------------------------------------------
+// 14. One-Time Student Authentication & Password Recovery Suite
+// ---------------------------------------------------------------------------
+console.log("\n14. Student Authentication, Recovery & Session Security Suite");
 
 import crypto from "crypto";
 
