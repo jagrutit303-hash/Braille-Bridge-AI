@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   extractDocumentFile,
   ExtractionResult,
@@ -33,6 +33,8 @@ import { SignalMark, SignalState } from "../components/SignalMark";
 import { VoiceDictationButton } from "../components/VoiceDictationButton";
 
 export const StudyCompanionView: React.FC = () => {
+  const uploadButtonRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [docResult, setDocResult] = useState<ExtractionResult | null>(null);
   const [isLoadingDoc, setIsLoadingDoc] = useState<boolean>(false);
   const [signalState, setSignalState] = useState<SignalState>("idle");
@@ -72,6 +74,17 @@ export const StudyCompanionView: React.FC = () => {
   const [showSavedNotes, setShowSavedNotes] = useState<boolean>(false);
   const [showExtractedPreview, setShowExtractedPreview] = useState<boolean>(false);
   const [activeLang, setActiveLang] = useState<string>(getActiveLanguage());
+
+  // Voice-agent upload request: focus the visible control so keyboard users can activate it.
+  useEffect(() => {
+    const focusUploadControl = () => {
+      uploadButtonRef.current?.focus();
+      setSignalState("idle");
+      setSignalMessage("File upload is ready. Press Enter or activate Choose File to open the file picker.");
+    };
+    window.addEventListener("braillebridge-request-file-upload", focusUploadControl);
+    return () => window.removeEventListener("braillebridge-request-file-upload", focusUploadControl);
+  }, []);
 
   // Load cloud notes & check if opened from Dashboard Saved Vault
   useEffect(() => {
@@ -503,15 +516,23 @@ Modern screen readers rely on the accessibility tree (DOM exposure via WAI-ARIA)
               </button>
             )}
 
-            <label className="cursor-pointer px-4 py-2 bg-[#3155E7] text-white text-xs font-bold rounded hover:bg-[#233fbe] transition-colors whitespace-nowrap">
-              <span>{isLoadingDoc ? "Extracting…" : "Choose File…"}</span>
-              <input
-                type="file"
-                accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp"
-                onChange={handleFileUpload}
-                className="sr-only"
-              />
-            </label>
+            <button
+              ref={uploadButtonRef}
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoadingDoc}
+              className="cursor-pointer px-4 py-2 bg-[#3155E7] text-white text-xs font-bold rounded hover:bg-[#233fbe] transition-colors whitespace-nowrap disabled:opacity-60"
+            >
+              {isLoadingDoc ? "Extracting…" : "Choose File…"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp,.bmp"
+              onChange={handleFileUpload}
+              className="sr-only"
+              aria-label="Choose a study document to upload"
+            />
           </div>
         </div>
 
