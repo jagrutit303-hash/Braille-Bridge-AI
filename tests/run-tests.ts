@@ -29,6 +29,7 @@ import {
   findDates,
   summarizeText,
   scoreOcrCandidate,
+  getOcrLanguageCode,
 } from "../src/services/documentService";
 import {
   generateICalendarEvent,
@@ -823,6 +824,22 @@ assert(
   scoreOcrCandidate("Array is a linear data structure storing elements.") >
     scoreOcrCandidate("`| ~^ {} _ 1"),
   "OCR handwriting fallback scorer prefers coherent alphanumeric words over scan noise"
+);
+
+assert(
+  getOcrLanguageCode("en-US") === "eng" &&
+    getOcrLanguageCode("hi-IN") === "eng+hin" &&
+    getOcrLanguageCode("kn-IN") === "eng+kan" &&
+    getOcrLanguageCode("ta-IN") === "eng+tam" &&
+    getOcrLanguageCode("bn-IN") === "eng+ben" &&
+    getOcrLanguageCode("fr-FR") === "eng",
+  "OCR selects English plus the supported active Indic language and safely defaults unsupported languages to English"
+);
+
+const uploadPlan = localRuleBasedPlanner("I want to upload a file", "home", "en-US");
+assert(
+  uploadPlan.steps.length === 1 && uploadPlan.steps[0].toolName === "request_file_upload",
+  "Voice agent recognizes an upload request and prepares the Study Companion file control"
 );
 
 let appliedCvd = "standard";
